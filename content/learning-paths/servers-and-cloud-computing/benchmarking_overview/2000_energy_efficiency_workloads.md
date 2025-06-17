@@ -471,6 +471,200 @@ When analyzing the results, consider these architecture-specific factors:
 - **Memory Subsystem**: Power efficiency of the memory hierarchy under different access patterns.
 - **Idle Power**: Baseline power consumption when parts of the processor are idle.
 
+## Arm-specific Optimizations
+
+Arm architectures are known for their energy efficiency. Here are specific optimizations to further improve energy efficiency on Arm systems:
+
+### 1. Arm big.LITTLE and DynamIQ Aware Scheduling
+
+Create a file named `arm_cpu_affinity.c`:
+
+```c
+#include <stdio.h>
+#include <stdlib.h>
+#include <time.h>
+#include <unistd.h>
+#include <pthread.h>
+#include <sched.h>
+
+#define ITERATIONS 100000000
+
+// Function to measure time
+double get_time() {
+    struct timespec ts;
+    clock_gettime(CLOCK_MONOTONIC, &ts);
+    return ts.tv_sec + ts.tv_nsec / 1.0e9;
+}
+
+// Compute-intensive function
+void* compute_intensive(void* arg) {
+    int cpu_id = *(int*)arg;
+    double result = 0.0;
+    
+    printf("Thread running on CPU %d\n", cpu_id);
+    
+    double start = get_time();
+    
+    // Perform compute-intensive operations
+    for (int i = 0; i < ITERATIONS; i++) {
+        result += i * 1.1;
+    }
+    
+    double end = get_time();
+    printf("CPU %d: Time: %.6f seconds\n", cpu_id, end - start);
+    
+    // Prevent optimization
+    if (result < 0) {
+        printf("This should never happen\n");
+    }
+    
+    return NULL;
+}
+
+int main() {
+    int num_cpus = sysconf(_SC_NPROCESSORS_ONLN);
+    printf("Number of CPUs: %d\n", num_cpus);
+    
+    // Run on each CPU to measure performance/efficiency
+    for (int cpu = 0; cpu < num_cpus; cpu++) {
+        pthread_t thread;
+        pthread_attr_t attr;
+        cpu_set_t cpuset;
+        
+        pthread_attr_init(&attr);
+        CPU_ZERO(&cpuset);
+        CPU_SET(cpu, &cpuset);
+        pthread_attr_setaffinity_np(&attr, sizeof(cpu_set_t), &cpuset);
+        
+        int cpu_arg = cpu;
+        pthread_create(&thread, &attr, compute_intensive, &cpu_arg);
+        pthread_join(thread, NULL);
+        
+        pthread_attr_destroy(&attr);
+    }
+    
+    return 0;
+}
+```
+
+Compile with:
+
+```bash
+gcc -O3 -pthread arm_cpu_affinity.c -o arm_cpu_affinity
+```
+
+### 2. Arm-optimized Power Management
+
+Create a file named `arm_power_modes.c`:
+
+```c
+#include <stdio.h>
+#include <stdlib.h>
+#include <time.h>
+#include <unistd.h>
+#include <pthread.h>
+
+#define BURST_ITERATIONS 10000000
+#define IDLE_TIME_MS 500
+#define CYCLES 10
+
+// Function to measure time
+double get_time() {
+    struct timespec ts;
+    clock_gettime(CLOCK_MONOTONIC, &ts);
+    return ts.tv_sec + ts.tv_nsec / 1.0e9;
+}
+
+// Function to simulate bursty workload
+void bursty_workload() {
+    double total_compute_time = 0.0;
+    double total_idle_time = 0.0;
+    
+    for (int cycle = 0; cycle < CYCLES; cycle++) {
+        // Burst phase
+        double start = get_time();
+        volatile double result = 0.0;
+        for (int i = 0; i < BURST_ITERATIONS; i++) {
+            result += i * 1.1;
+        }
+        double end = get_time();
+        total_compute_time += (end - start);
+        
+        // Idle phase - allows CPU to enter low power state
+        start = get_time();
+        usleep(IDLE_TIME_MS * 1000);  // Convert to microseconds
+        end = get_time();
+        total_idle_time += (end - start);
+        
+        printf("Cycle %d: Compute: %.6f s, Idle: %.6f s\n", 
+               cycle, end - start, end - start);
+    }
+    
+    printf("Total compute time: %.6f s\n", total_compute_time);
+    printf("Total idle time: %.6f s\n", total_idle_time);
+}
+
+int main() {
+    printf("Running bursty workload optimized for Arm power states...\n");
+    bursty_workload();
+    return 0;
+}
+```
+
+Compile with:
+
+```bash
+gcc -O3 arm_power_modes.c -o arm_power_modes
+```
+
+### 3. Key Arm Energy Efficiency Optimization Techniques
+
+1. **big.LITTLE and DynamIQ Awareness**: Schedule workloads appropriately:
+   - Compute-intensive tasks on big cores
+   - Background/lightweight tasks on LITTLE cores
+   - Use `sched_setaffinity()` to control placement
+
+2. **Arm-specific Power States**: Design applications to take advantage of Arm's power states:
+   - Group computations into bursts to allow deeper sleep states
+   - Use the `schedutil` CPU governor on Linux
+   - Consider setting CPU affinity to avoid unnecessary core wake-ups
+
+3. **Memory Access Optimization**: Optimize memory access patterns for energy efficiency:
+   ```c
+   // Instead of random access
+   for (int i = 0; i < size; i += stride) {
+       data[i] = process(data[i]);
+   }
+   
+   // Use sequential access
+   for (int i = 0; i < size; i++) {
+       data[i] = process(data[i]);
+   }
+   ```
+
+4. **Compiler Flags for Energy Efficiency**:
+   ```bash
+   gcc -O3 -march=native -mtune=native -fomit-frame-pointer
+   ```
+
+5. **Arm-specific Libraries**: Use optimized libraries:
+   - Arm Compute Library for ML/computer vision
+   - Arm Performance Libraries for math operations
+   - Arm-optimized versions of common libraries (BLAS, LAPACK, etc.)
+
+6. **DVFS (Dynamic Voltage and Frequency Scaling) Optimization**:
+   ```c
+   // For compute-intensive sections
+   system("echo performance > /sys/devices/system/cpu/cpu0/cpufreq/scaling_governor");
+   
+   // Heavy computation here
+   
+   // For idle/light sections
+   system("echo powersave > /sys/devices/system/cpu/cpu0/cpufreq/scaling_governor");
+   ```
+
+These optimizations can significantly improve energy efficiency on Arm architectures, especially for mobile, edge, and server workloads.
+
 ## Relevance to Workloads
 
 Energy efficiency benchmarking across different workloads is particularly important for:

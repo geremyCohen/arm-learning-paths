@@ -498,6 +498,236 @@ When analyzing the results, consider these architecture-specific factors:
 - **Hardware Implementation**: The physical implementation of SIMD units affects performance.
 - **Compiler Optimization**: Compiler auto-vectorization capabilities may differ between architectures.
 
+## Arm-specific Optimizations
+
+Arm architectures offer powerful SIMD capabilities through NEON and SVE (Scalable Vector Extension) that can be leveraged for significant performance improvements:
+
+### 1. Arm NEON Intrinsics
+
+Create a file named `neon_vector_add.c`:
+
+```c
+#include <stdio.h>
+#include <stdlib.h>
+#include <time.h>
+#include <arm_neon.h>
+
+#define ARRAY_SIZE 10000000
+#define ITERATIONS 100
+
+double get_time() {
+    struct timespec ts;
+    clock_gettime(CLOCK_MONOTONIC, &ts);
+    return ts.tv_sec + ts.tv_nsec / 1.0e9;
+}
+
+// Optimized vector addition using NEON intrinsics
+void vector_add_neon(float *a, float *b, float *c, int size) {
+    int i = 0;
+    
+    // Process 4 elements at a time using NEON
+    for (; i <= size - 4; i += 4) {
+        float32x4_t va = vld1q_f32(&a[i]);
+        float32x4_t vb = vld1q_f32(&b[i]);
+        float32x4_t vc = vaddq_f32(va, vb);
+        vst1q_f32(&c[i], vc);
+    }
+    
+    // Process remaining elements
+    for (; i < size; i++) {
+        c[i] = a[i] + b[i];
+    }
+}
+
+int main() {
+    // Allocate aligned memory
+    float *a = (float *)aligned_alloc(16, ARRAY_SIZE * sizeof(float));
+    float *b = (float *)aligned_alloc(16, ARRAY_SIZE * sizeof(float));
+    float *c = (float *)aligned_alloc(16, ARRAY_SIZE * sizeof(float));
+    
+    if (!a || !b || !c) {
+        perror("Memory allocation failed");
+        return 1;
+    }
+    
+    // Initialize arrays
+    for (int i = 0; i < ARRAY_SIZE; i++) {
+        a[i] = (float)rand() / RAND_MAX;
+        b[i] = (float)rand() / RAND_MAX;
+    }
+    
+    // Benchmark
+    double start = get_time();
+    
+    for (int iter = 0; iter < ITERATIONS; iter++) {
+        vector_add_neon(a, b, c, ARRAY_SIZE);
+    }
+    
+    double end = get_time();
+    double elapsed = end - start;
+    
+    printf("NEON vector add time: %.6f seconds\n", elapsed);
+    printf("Elements processed per second: %.2f million\n", 
+           (double)ARRAY_SIZE * ITERATIONS / elapsed / 1000000);
+    
+    // Verify result
+    float sum = 0.0f;
+    for (int i = 0; i < ARRAY_SIZE; i += 1000) {
+        sum += c[i];
+    }
+    printf("Checksum: %f\n", sum);
+    
+    free(a);
+    free(b);
+    free(c);
+    
+    return 0;
+}
+```
+
+Compile with Arm NEON support:
+
+```bash
+gcc -O3 -march=native -mfpu=neon neon_vector_add.c -o neon_vector_add
+```
+
+### 2. Arm NEON FMA (Fused Multiply-Add)
+
+Create a file named `neon_fma.c`:
+
+```c
+#include <stdio.h>
+#include <stdlib.h>
+#include <time.h>
+#include <arm_neon.h>
+
+#define ARRAY_SIZE 10000000
+#define ITERATIONS 100
+
+double get_time() {
+    struct timespec ts;
+    clock_gettime(CLOCK_MONOTONIC, &ts);
+    return ts.tv_sec + ts.tv_nsec / 1.0e9;
+}
+
+// Optimized FMA using NEON intrinsics
+void vector_fma_neon(float *a, float *b, float *c, float *d, int size) {
+    int i = 0;
+    
+    // Process 4 elements at a time using NEON
+    for (; i <= size - 4; i += 4) {
+        float32x4_t va = vld1q_f32(&a[i]);
+        float32x4_t vb = vld1q_f32(&b[i]);
+        float32x4_t vc = vld1q_f32(&c[i]);
+        
+        // d = a * b + c
+        float32x4_t vd = vfmaq_f32(vc, va, vb);
+        vst1q_f32(&d[i], vd);
+    }
+    
+    // Process remaining elements
+    for (; i < size; i++) {
+        d[i] = a[i] * b[i] + c[i];
+    }
+}
+
+int main() {
+    // Allocate aligned memory
+    float *a = (float *)aligned_alloc(16, ARRAY_SIZE * sizeof(float));
+    float *b = (float *)aligned_alloc(16, ARRAY_SIZE * sizeof(float));
+    float *c = (float *)aligned_alloc(16, ARRAY_SIZE * sizeof(float));
+    float *d = (float *)aligned_alloc(16, ARRAY_SIZE * sizeof(float));
+    
+    if (!a || !b || !c || !d) {
+        perror("Memory allocation failed");
+        return 1;
+    }
+    
+    // Initialize arrays
+    for (int i = 0; i < ARRAY_SIZE; i++) {
+        a[i] = (float)rand() / RAND_MAX;
+        b[i] = (float)rand() / RAND_MAX;
+        c[i] = (float)rand() / RAND_MAX;
+    }
+    
+    // Benchmark
+    double start = get_time();
+    
+    for (int iter = 0; iter < ITERATIONS; iter++) {
+        vector_fma_neon(a, b, c, d, ARRAY_SIZE);
+    }
+    
+    double end = get_time();
+    double elapsed = end - start;
+    
+    printf("NEON FMA time: %.6f seconds\n", elapsed);
+    printf("Elements processed per second: %.2f million\n", 
+           (double)ARRAY_SIZE * ITERATIONS / elapsed / 1000000);
+    
+    // Verify result
+    float sum = 0.0f;
+    for (int i = 0; i < ARRAY_SIZE; i += 1000) {
+        sum += d[i];
+    }
+    printf("Checksum: %f\n", sum);
+    
+    free(a);
+    free(b);
+    free(c);
+    free(d);
+    
+    return 0;
+}
+```
+
+Compile with:
+
+```bash
+gcc -O3 -march=native -mfpu=neon neon_fma.c -o neon_fma
+```
+
+### 3. Key Arm SIMD Optimization Techniques
+
+1. **Data Alignment**: Align data to 16-byte boundaries for NEON (or larger for SVE) to enable faster memory access:
+   ```c
+   float *data = (float *)aligned_alloc(16, size * sizeof(float));
+   ```
+
+2. **Arm-specific Compiler Flags**:
+   ```bash
+   gcc -O3 -march=native -mtune=native -ftree-vectorize
+   ```
+
+3. **NEON Intrinsics**: Use Arm NEON intrinsics for explicit vectorization when auto-vectorization is insufficient.
+
+4. **Loop Unrolling with NEON**: Process multiple vectors in each iteration:
+   ```c
+   for (; i <= size - 16; i += 16) {
+       float32x4_t va1 = vld1q_f32(&a[i]);
+       float32x4_t va2 = vld1q_f32(&a[i+4]);
+       float32x4_t va3 = vld1q_f32(&a[i+8]);
+       float32x4_t va4 = vld1q_f32(&a[i+12]);
+       // Process all four vectors...
+   }
+   ```
+
+5. **SVE for Newer Arm CPUs**: For Armv8.2-A and newer with SVE support:
+   ```c
+   #include <arm_sve.h>
+   
+   void vector_add_sve(float *a, float *b, float *c, int size) {
+       for (int i = 0; i < size; i += svcntw()) {
+           svbool_t pg = svwhilelt_b32(i, size);
+           svfloat32_t va = svld1(pg, &a[i]);
+           svfloat32_t vb = svld1(pg, &b[i]);
+           svfloat32_t vc = svadd_f32_z(pg, va, vb);
+           svst1(pg, &c[i], vc);
+       }
+   }
+   ```
+
+These optimizations can provide significant performance improvements for vector operations on Arm architectures, often achieving 2-4x speedups compared to scalar code.
+
 ## Relevance to Workloads
 
 SIMD/Vector performance benchmarking is particularly important for:
