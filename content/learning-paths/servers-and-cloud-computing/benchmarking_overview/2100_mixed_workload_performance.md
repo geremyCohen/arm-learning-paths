@@ -636,6 +636,379 @@ When analyzing the results, consider these architecture-specific factors:
 - **Scheduler Implementation**: Different CPU schedulers may prioritize workloads differently.
 - **Resource Partitioning**: Some architectures may have better isolation between cores or threads.
 
+## Arm-specific Optimizations
+
+Arm architectures offer several optimization techniques to improve mixed workload performance:
+
+### 1. Arm-optimized Workload Isolation
+
+Create a file named `arm_workload_isolation.c`:
+
+```c
+#include <stdio.h>
+#include <stdlib.h>
+#include <pthread.h>
+#include <unistd.h>
+#include <time.h>
+#include <sched.h>
+
+#define CPU_ITERATIONS 100000000
+#define MEMORY_SIZE 100000000
+#define IO_OPERATIONS 1000
+
+// Function to measure time
+double get_time() {
+    struct timespec ts;
+    clock_gettime(CLOCK_MONOTONIC, &ts);
+    return ts.tv_sec + ts.tv_nsec / 1.0e9;
+}
+
+// CPU-intensive workload
+void* cpu_workload(void* arg) {
+    int cpu_id = *(int*)arg;
+    volatile double result = 0.0;
+    
+    // Set CPU affinity if specified
+    if (cpu_id >= 0) {
+        cpu_set_t cpuset;
+        CPU_ZERO(&cpuset);
+        CPU_SET(cpu_id, &cpuset);
+        pthread_setaffinity_np(pthread_self(), sizeof(cpu_set_t), &cpuset);
+        printf("CPU workload running on CPU %d\n", cpu_id);
+    }
+    
+    double start = get_time();
+    
+    // Perform CPU-intensive operations
+    for (int i = 0; i < CPU_ITERATIONS; i++) {
+        result += i * 1.1;
+    }
+    
+    double end = get_time();
+    printf("CPU workload time: %.6f seconds\n", end - start);
+    
+    return NULL;
+}
+
+// Memory-intensive workload
+void* memory_workload(void* arg) {
+    int cpu_id = *(int*)arg;
+    
+    // Set CPU affinity if specified
+    if (cpu_id >= 0) {
+        cpu_set_t cpuset;
+        CPU_ZERO(&cpuset);
+        CPU_SET(cpu_id, &cpuset);
+        pthread_setaffinity_np(pthread_self(), sizeof(cpu_set_t), &cpuset);
+        printf("Memory workload running on CPU %d\n", cpu_id);
+    }
+    
+    // Allocate large array
+    int* array = (int*)malloc(MEMORY_SIZE * sizeof(int));
+    if (!array) {
+        perror("malloc");
+        return NULL;
+    }
+    
+    double start = get_time();
+    
+    // Perform memory-intensive operations
+    for (int i = 0; i < MEMORY_SIZE; i++) {
+        array[i] = i;
+    }
+    
+    // Read back to ensure memory operations complete
+    volatile int sum = 0;
+    for (int i = 0; i < MEMORY_SIZE; i++) {
+        sum += array[i];
+    }
+    
+    double end = get_time();
+    printf("Memory workload time: %.6f seconds\n", end - start);
+    
+    free(array);
+    return NULL;
+}
+
+// I/O-intensive workload
+void* io_workload(void* arg) {
+    int cpu_id = *(int*)arg;
+    
+    // Set CPU affinity if specified
+    if (cpu_id >= 0) {
+        cpu_set_t cpuset;
+        CPU_ZERO(&cpuset);
+        CPU_SET(cpu_id, &cpuset);
+        pthread_setaffinity_np(pthread_self(), sizeof(cpu_set_t), &cpuset);
+        printf("I/O workload running on CPU %d\n", cpu_id);
+    }
+    
+    double start = get_time();
+    
+    // Perform I/O operations
+    FILE* file = fopen("io_test.txt", "w");
+    if (!file) {
+        perror("fopen");
+        return NULL;
+    }
+    
+    for (int i = 0; i < IO_OPERATIONS; i++) {
+        fprintf(file, "Line %d: This is a test of I/O performance under mixed workloads.\n", i);
+        fflush(file);  // Force write to disk
+    }
+    
+    fclose(file);
+    
+    double end = get_time();
+    printf("I/O workload time: %.6f seconds\n", end - start);
+    
+    return NULL;
+}
+
+int main(int argc, char* argv[]) {
+    int isolation_mode = 0;
+    
+    if (argc > 1) {
+        isolation_mode = atoi(argv[1]);
+    }
+    
+    printf("Running with isolation mode: %d\n", isolation_mode);
+    printf("Number of CPUs: %ld\n", sysconf(_SC_NPROCESSORS_ONLN));
+    
+    pthread_t cpu_thread, memory_thread, io_thread;
+    int cpu_core = -1, memory_core = -1, io_core = -1;
+    
+    // Set core affinity based on isolation mode
+    if (isolation_mode == 1) {
+        // Simple isolation: different cores for different workload types
+        cpu_core = 0;
+        memory_core = 1;
+        io_core = 2;
+    }
+    
+    // Start workloads
+    pthread_create(&cpu_thread, NULL, cpu_workload, &cpu_core);
+    pthread_create(&memory_thread, NULL, memory_workload, &memory_core);
+    pthread_create(&io_thread, NULL, io_workload, &io_core);
+    
+    // Wait for completion
+    pthread_join(cpu_thread, NULL);
+    pthread_join(memory_thread, NULL);
+    pthread_join(io_thread, NULL);
+    
+    return 0;
+}
+```
+
+Compile with:
+
+```bash
+gcc -O3 -pthread arm_workload_isolation.c -o arm_workload_isolation
+```
+
+Run with different isolation modes:
+
+```bash
+# No isolation
+./arm_workload_isolation 0
+
+# With isolation
+./arm_workload_isolation 1
+```
+
+### 2. Arm-optimized Memory Allocation
+
+Create a file named `arm_memory_allocation.c`:
+
+```c
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <time.h>
+#include <pthread.h>
+#include <unistd.h>
+
+#define NUM_THREADS 4
+#define ALLOCATIONS_PER_THREAD 1000
+#define ALLOCATION_SIZE 1024
+
+// Function to measure time
+double get_time() {
+    struct timespec ts;
+    clock_gettime(CLOCK_MONOTONIC, &ts);
+    return ts.tv_sec + ts.tv_nsec / 1.0e9;
+}
+
+// Thread-local storage for memory allocations
+__thread void* thread_local_buffers[ALLOCATIONS_PER_THREAD];
+
+// Standard allocation workload
+void* standard_allocation(void* arg) {
+    int thread_id = *(int*)arg;
+    void* buffers[ALLOCATIONS_PER_THREAD];
+    
+    double start = get_time();
+    
+    // Allocate memory
+    for (int i = 0; i < ALLOCATIONS_PER_THREAD; i++) {
+        buffers[i] = malloc(ALLOCATION_SIZE);
+        if (buffers[i]) {
+            memset(buffers[i], thread_id, ALLOCATION_SIZE);
+        }
+    }
+    
+    // Use memory
+    for (int i = 0; i < ALLOCATIONS_PER_THREAD; i++) {
+        if (buffers[i]) {
+            volatile char sum = 0;
+            char* buf = (char*)buffers[i];
+            for (int j = 0; j < ALLOCATION_SIZE; j += 64) {
+                sum += buf[j];
+            }
+        }
+    }
+    
+    // Free memory
+    for (int i = 0; i < ALLOCATIONS_PER_THREAD; i++) {
+        free(buffers[i]);
+    }
+    
+    double end = get_time();
+    printf("Thread %d: Standard allocation time: %.6f seconds\n", 
+           thread_id, end - start);
+    
+    return NULL;
+}
+
+// Thread-local allocation workload
+void* thread_local_allocation(void* arg) {
+    int thread_id = *(int*)arg;
+    
+    double start = get_time();
+    
+    // Allocate memory in thread-local storage
+    for (int i = 0; i < ALLOCATIONS_PER_THREAD; i++) {
+        thread_local_buffers[i] = malloc(ALLOCATION_SIZE);
+        if (thread_local_buffers[i]) {
+            memset(thread_local_buffers[i], thread_id, ALLOCATION_SIZE);
+        }
+    }
+    
+    // Use memory
+    for (int i = 0; i < ALLOCATIONS_PER_THREAD; i++) {
+        if (thread_local_buffers[i]) {
+            volatile char sum = 0;
+            char* buf = (char*)thread_local_buffers[i];
+            for (int j = 0; j < ALLOCATION_SIZE; j += 64) {
+                sum += buf[j];
+            }
+        }
+    }
+    
+    // Free memory
+    for (int i = 0; i < ALLOCATIONS_PER_THREAD; i++) {
+        free(thread_local_buffers[i]);
+    }
+    
+    double end = get_time();
+    printf("Thread %d: Thread-local allocation time: %.6f seconds\n", 
+           thread_id, end - start);
+    
+    return NULL;
+}
+
+int main() {
+    pthread_t threads[NUM_THREADS];
+    int thread_ids[NUM_THREADS];
+    
+    printf("Testing standard memory allocation...\n");
+    for (int i = 0; i < NUM_THREADS; i++) {
+        thread_ids[i] = i;
+        pthread_create(&threads[i], NULL, standard_allocation, &thread_ids[i]);
+    }
+    
+    for (int i = 0; i < NUM_THREADS; i++) {
+        pthread_join(threads[i], NULL);
+    }
+    
+    printf("\nTesting thread-local memory allocation...\n");
+    for (int i = 0; i < NUM_THREADS; i++) {
+        thread_ids[i] = i;
+        pthread_create(&threads[i], NULL, thread_local_allocation, &thread_ids[i]);
+    }
+    
+    for (int i = 0; i < NUM_THREADS; i++) {
+        pthread_join(threads[i], NULL);
+    }
+    
+    return 0;
+}
+```
+
+Compile with:
+
+```bash
+gcc -O3 -pthread arm_memory_allocation.c -o arm_memory_allocation
+```
+
+### 3. Key Arm Mixed Workload Optimization Techniques
+
+1. **Workload Isolation on Arm big.LITTLE/DynamIQ Systems**:
+   - Place compute-intensive workloads on big cores
+   - Place I/O or memory-bound workloads on LITTLE cores
+   - Use `sched_setaffinity()` to control placement
+
+2. **Memory Allocator Optimization**:
+   - Consider using jemalloc instead of glibc malloc:
+   ```bash
+   # Install jemalloc
+   sudo apt install libjemalloc-dev
+   
+   # Compile with jemalloc
+   gcc -O3 program.c -o program -ljemalloc
+   
+   # Run with jemalloc
+   LD_PRELOAD=/usr/lib/aarch64-linux-gnu/libjemalloc.so ./program
+   ```
+
+3. **NUMA Awareness for Multi-socket Arm Systems**:
+   ```c
+   #include <numa.h>
+   
+   // Allocate memory on the local NUMA node
+   void* local_memory = numa_alloc_local(size);
+   
+   // Allocate memory on a specific NUMA node
+   void* node_memory = numa_alloc_onnode(size, node);
+   ```
+
+4. **Cache Partitioning with Cache Coloring**:
+   ```c
+   // Allocate memory aligned to cache line size
+   void* buffer = aligned_alloc(64, size);
+   
+   // Access with stride to use different cache sets
+   for (int i = 0; i < size; i += 4096) {
+       buffer[i] = value;
+   }
+   ```
+
+5. **I/O Optimization for Mixed Workloads**:
+   ```c
+   // Set I/O priority for different threads
+   #include <sys/resource.h>
+   
+   // For background I/O threads
+   ioprio_set(IOPRIO_WHO_PROCESS, pid, 
+              IOPRIO_PRIO_VALUE(IOPRIO_CLASS_IDLE, 0));
+   
+   // For critical I/O threads
+   ioprio_set(IOPRIO_WHO_PROCESS, pid, 
+              IOPRIO_PRIO_VALUE(IOPRIO_CLASS_RT, 0));
+   ```
+
+These optimizations can significantly improve mixed workload performance on Arm architectures by reducing resource contention and improving isolation between different types of workloads.
+
 ## Relevance to Workloads
 
 Mixed workload performance benchmarking is particularly important for:

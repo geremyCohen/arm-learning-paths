@@ -8,17 +8,18 @@ layout: learningpathall
 
 ## Understanding Cache Performance
 
-Cache performance is a critical factor in determining overall system performance. CPU caches are small, high-speed memory areas that store frequently accessed data to reduce the time needed to fetch data from main memory. Modern processors typically have multiple levels of cache (L1, L2, L3), each with different sizes and access speeds.
+Cache performance is a critical factor in determining overall system performance. Modern processors have multiple levels of cache (L1, L2, L3) that store frequently accessed data to reduce memory access latency. The effectiveness of these caches depends on factors like size, associativity, line size, and replacement policy, which can vary between architectures.
 
-When comparing Intel/AMD (x86) versus Arm architectures, cache hierarchies can differ significantly in terms of size, organization, and latency. These differences can have profound effects on application performance, especially for workloads with specific memory access patterns.
+When comparing Intel/AMD (x86) versus Arm architectures, cache hierarchies can differ significantly in terms of size, organization, and latency. These differences can have substantial performance implications, especially for memory-intensive workloads.
 
 For more detailed information about cache performance, you can refer to:
-- [CPU Cache Explained](https://www.cloudflare.com/learning/performance/what-is-cpu-cache/)
-- [Cache Optimization Techniques](https://software.intel.com/content/www/us/en/develop/articles/cache-optimization-in-applications.html)
+- [Cache Performance Fundamentals](https://www.cs.cornell.edu/courses/cs3410/2013sp/lecture/18-caches3-w.pdf)
+- [CPU Cache Optimization](https://www.intel.com/content/dam/develop/external/us/en/documents/introduction-to-intel-cache-optimization-254438.pdf)
+- [Arm Cache Architecture](https://developer.arm.com/documentation/den0024/a/Memory-Ordering/Memory-hierarchy)
 
 ## Benchmarking Exercise: Comparing Cache Performance
 
-In this exercise, we'll use LMBench and a custom cache traversal benchmark to measure and compare cache performance across Intel/AMD and Arm systems.
+In this exercise, we'll measure and compare cache performance across Intel/AMD and Arm architectures using various access patterns.
 
 ### Prerequisites
 
@@ -34,10 +35,10 @@ Run the following commands on both VMs:
 
 ```bash
 sudo apt update
-sudo apt install -y build-essential git python3 python3-matplotlib lmbench
+sudo apt install -y build-essential python3-matplotlib
 ```
 
-### Step 2: Create Cache Traversal Benchmark
+### Step 2: Create Cache Benchmark
 
 Create a file named `cache_benchmark.c` with the following content:
 
@@ -45,78 +46,159 @@ Create a file named `cache_benchmark.c` with the following content:
 #include <stdio.h>
 #include <stdlib.h>
 #include <time.h>
-#include <stdint.h>
+#include <string.h>
 
-#define CACHE_LINE_SIZE 64
-#define BILLION 1000000000L
+#define MAX_ARRAY_SIZE (64 * 1024 * 1024)  // 64MB
+#define MIN_ARRAY_SIZE (1 * 1024)          // 1KB
+#define ITERATIONS 100000000
+#define STEP_FACTOR 2
 
-// Function to measure time with nanosecond precision
-uint64_t get_ns() {
+// Function to measure time
+double get_time() {
     struct timespec ts;
     clock_gettime(CLOCK_MONOTONIC, &ts);
-    return (uint64_t)ts.tv_sec * BILLION + ts.tv_nsec;
+    return ts.tv_sec + ts.tv_nsec / 1.0e9;
+}
+
+// Sequential access pattern
+void sequential_access(int *array, size_t array_size, size_t iterations) {
+    size_t i, iter;
+    volatile int sum = 0;  // Prevent optimization
+    
+    for (iter = 0; iter < iterations; iter++) {
+        for (i = 0; i < array_size; i++) {
+            sum += array[i];
+        }
+        
+        // Break early for large arrays to keep runtime reasonable
+        if (array_size > 1024 * 1024 && iter > iterations / 100) {
+            break;
+        }
+    }
+}
+
+// Random access pattern
+void random_access(int *array, size_t array_size, int *indices, size_t iterations) {
+    size_t i, iter;
+    volatile int sum = 0;  // Prevent optimization
+    
+    for (iter = 0; iter < iterations; iter++) {
+        for (i = 0; i < array_size; i++) {
+            sum += array[indices[i]];
+        }
+        
+        // Break early for large arrays to keep runtime reasonable
+        if (array_size > 1024 * 1024 && iter > iterations / 100) {
+            break;
+        }
+    }
+}
+
+// Strided access pattern
+void strided_access(int *array, size_t array_size, size_t stride, size_t iterations) {
+    size_t i, iter;
+    volatile int sum = 0;  // Prevent optimization
+    
+    for (iter = 0; iter < iterations; iter++) {
+        for (i = 0; i < array_size; i += stride) {
+            sum += array[i];
+        }
+        
+        // Break early for large arrays to keep runtime reasonable
+        if (array_size > 1024 * 1024 && iter > iterations / 100) {
+            break;
+        }
+    }
 }
 
 int main(int argc, char *argv[]) {
-    if (argc != 3) {
-        printf("Usage: %s <array_size_mb> <stride>\n", argv[0]);
-        return 1;
+    int access_pattern = 0;  // 0: sequential, 1: random, 2: strided
+    int stride = 16;         // Default stride for strided access
+    
+    // Parse command line arguments
+    if (argc > 1) {
+        access_pattern = atoi(argv[1]);
     }
-
-    int size_mb = atoi(argv[1]);
-    int stride = atoi(argv[2]);
+    if (argc > 2) {
+        stride = atoi(argv[2]);
+    }
     
-    // Convert MB to bytes
-    size_t size = (size_t)size_mb * 1024 * 1024;
-    size_t elements = size / sizeof(int);
+    printf("Access pattern: %d (0: sequential, 1: random, 2: strided)\n", access_pattern);
+    if (access_pattern == 2) {
+        printf("Stride: %d\n", stride);
+    }
     
-    // Allocate memory
-    int *array = (int *)malloc(size);
+    // Allocate maximum array size
+    int *array = (int *)malloc(MAX_ARRAY_SIZE * sizeof(int));
     if (!array) {
-        printf("Memory allocation failed\n");
+        perror("malloc");
         return 1;
     }
     
-    // Initialize array with indices
-    for (size_t i = 0; i < elements; i++) {
-        array[i] = (i + stride) % elements;
+    // Initialize array
+    for (size_t i = 0; i < MAX_ARRAY_SIZE; i++) {
+        array[i] = i;
     }
     
-    // Warm up the cache
-    int index = 0;
-    for (int i = 0; i < 1000000; i++) {
-        index = array[index];
+    // For random access, create index array
+    int *indices = NULL;
+    if (access_pattern == 1) {
+        indices = (int *)malloc(MAX_ARRAY_SIZE * sizeof(int));
+        if (!indices) {
+            perror("malloc");
+            free(array);
+            return 1;
+        }
+        
+        // Initialize indices with random values
+        for (size_t i = 0; i < MAX_ARRAY_SIZE; i++) {
+            indices[i] = rand() % MAX_ARRAY_SIZE;
+        }
     }
     
-    // Measure traversal time
-    uint64_t start_time = get_ns();
+    // Test different array sizes
+    printf("Array size (bytes),Access time (ns)\n");
     
-    // Traverse the array using the indices stored in the array
-    // This creates a pointer-chasing pattern that is sensitive to cache performance
-    index = 0;
-    for (size_t i = 0; i < elements; i++) {
-        index = array[index];
+    for (size_t array_size = MIN_ARRAY_SIZE; array_size <= MAX_ARRAY_SIZE; array_size *= STEP_FACTOR) {
+        size_t elements = array_size / sizeof(int);
+        
+        // Adjust iterations based on array size to keep runtime reasonable
+        size_t adjusted_iterations = ITERATIONS / (array_size / MIN_ARRAY_SIZE);
+        if (adjusted_iterations < 10) adjusted_iterations = 10;
+        
+        // Warm up cache
+        if (access_pattern == 0) {
+            sequential_access(array, elements, 10);
+        } else if (access_pattern == 1) {
+            random_access(array, elements, indices, 10);
+        } else {
+            strided_access(array, elements, stride, 10);
+        }
+        
+        // Measure access time
+        double start_time = get_time();
+        
+        if (access_pattern == 0) {
+            sequential_access(array, elements, adjusted_iterations);
+        } else if (access_pattern == 1) {
+            random_access(array, elements, indices, adjusted_iterations);
+        } else {
+            strided_access(array, elements, stride, adjusted_iterations);
+        }
+        
+        double end_time = get_time();
+        double elapsed = end_time - start_time;
+        
+        // Calculate average access time in nanoseconds
+        double access_time_ns = (elapsed * 1e9) / (elements * adjusted_iterations);
+        
+        printf("%zu,%.2f\n", array_size, access_time_ns);
     }
     
-    uint64_t end_time = get_ns();
-    uint64_t elapsed = end_time - start_time;
-    
-    // Calculate metrics
-    double seconds = (double)elapsed / BILLION;
-    double bandwidth = (double)elements * sizeof(int) / seconds / (1024 * 1024);
-    double ns_per_access = (double)elapsed / elements;
-    
-    // Print results
-    printf("Array size: %d MB\n", size_mb);
-    printf("Stride: %d\n", stride);
-    printf("Time: %.6f seconds\n", seconds);
-    printf("Bandwidth: %.2f MB/s\n", bandwidth);
-    printf("Access time: %.2f ns per element\n", ns_per_access);
-    
-    // Prevent compiler from optimizing away the traversal
-    printf("Validation: %d\n", index);
-    
+    // Clean up
     free(array);
+    if (indices) free(indices);
+    
     return 0;
 }
 ```
@@ -124,7 +206,7 @@ int main(int argc, char *argv[]) {
 Compile the benchmark:
 
 ```bash
-gcc -O3 cache_benchmark.c -o cache_benchmark
+gcc -O2 cache_benchmark.c -o cache_benchmark
 ```
 
 ### Step 3: Create Benchmark Script
@@ -134,77 +216,27 @@ Create a file named `run_cache_benchmark.sh` with the following content:
 ```bash
 #!/bin/bash
 
-# Function to get architecture
-get_arch() {
-  arch=$(uname -m)
-  if [[ "$arch" == "x86_64" ]]; then
-    echo "Intel/AMD (x86_64)"
-  elif [[ "$arch" == "aarch64" ]]; then
-    echo "Arm (aarch64)"
-  else
-    echo "Unknown architecture: $arch"
-  fi
-}
+# Get architecture
+arch=$(uname -m)
+echo "Architecture: $arch"
+echo "CPU: $(lscpu | grep 'Model name' | cut -d: -f2 | xargs)"
 
-# Display system information
-echo "=== System Information ==="
-echo "Architecture: $(get_arch)"
-echo "CPU Model:"
-lscpu | grep "Model name"
-echo "Cache Information:"
-lscpu | grep -i cache
-echo ""
+# Run sequential access benchmark
+echo "Running sequential access benchmark..."
+./cache_benchmark 0 > sequential_access.csv
 
-# Run LMBench cache latency test
-echo "=== Running LMBench Cache Latency Test ==="
-lat_mem_rd 64 128
+# Run random access benchmark
+echo "Running random access benchmark..."
+./cache_benchmark 1 > random_access.csv
 
-# Run custom cache benchmark with different array sizes
-echo "=== Running Custom Cache Traversal Benchmark ==="
-echo "Testing different array sizes with stride=1..."
-
-# Create CSV file for results
-echo "size_kb,latency_ns" > cache_results.csv
-
-# Test with increasing array sizes to reveal cache hierarchy
-for size_kb in 4 8 16 32 64 128 256 512 1024 2048 4096 8192 16384 32768; do
-  size_mb=$((size_kb / 1024))
-  if [ $size_mb -eq 0 ]; then
-    size_mb=1
-  fi
-  
-  echo "Testing array size: $size_kb KB"
-  ./cache_benchmark $size_mb 1 | tee -a full_results.txt
-  
-  # Extract access time and add to CSV
-  access_time=$(./cache_benchmark $size_mb 1 | grep "Access time" | awk '{print $3}')
-  echo "$size_kb,$access_time" >> cache_results.csv
-  
-  echo ""
+# Run strided access benchmark with different strides
+echo "Running strided access benchmark..."
+for stride in 1 2 4 8 16 32 64 128; do
+    echo "  Stride: $stride"
+    ./cache_benchmark 2 $stride > strided_access_${stride}.csv
 done
 
-# Generate plot if Python and matplotlib are available
-if command -v python3 &> /dev/null; then
-  echo "Generating cache latency plot..."
-  python3 - <<EOF
-import matplotlib.pyplot as plt
-import pandas as pd
-import numpy as np
-
-# Read data
-data = pd.read_csv('cache_results.csv')
-
-# Create plot
-plt.figure(figsize=(10, 6))
-plt.semilogx(data['size_kb'], data['latency_ns'], '-o')
-plt.grid(True, which="both", ls="-")
-plt.xlabel('Array Size (KB)')
-plt.ylabel('Access Latency (ns)')
-plt.title('Memory Access Latency vs Array Size - $(get_arch)')
-plt.savefig('cache_latency_plot.png')
-print("Plot saved as cache_latency_plot.png")
-EOF
-fi
+echo "Benchmark complete. Results saved to CSV files."
 ```
 
 Make the script executable:
@@ -213,65 +245,378 @@ Make the script executable:
 chmod +x run_cache_benchmark.sh
 ```
 
-### Step 4: Run the Benchmark
+### Step 4: Create Visualization Script
+
+Create a file named `plot_cache_results.py` with the following content:
+
+```python
+import matplotlib.pyplot as plt
+import numpy as np
+import csv
+import os
+
+def read_csv(filename):
+    sizes = []
+    times = []
+    
+    with open(filename, 'r') as f:
+        reader = csv.reader(f)
+        next(reader)  # Skip header
+        for row in reader:
+            sizes.append(int(row[0]))
+            times.append(float(row[1]))
+    
+    return np.array(sizes), np.array(times)
+
+# Plot sequential vs random access
+plt.figure(figsize=(10, 6))
+
+if os.path.exists('sequential_access.csv'):
+    seq_sizes, seq_times = read_csv('sequential_access.csv')
+    plt.plot(seq_sizes, seq_times, 'b-', label='Sequential Access')
+
+if os.path.exists('random_access.csv'):
+    rand_sizes, rand_times = read_csv('random_access.csv')
+    plt.plot(rand_sizes, rand_times, 'r-', label='Random Access')
+
+plt.xscale('log')
+plt.yscale('log')
+plt.xlabel('Array Size (bytes)')
+plt.ylabel('Access Time (ns)')
+plt.title('Cache Performance: Sequential vs Random Access')
+plt.legend()
+plt.grid(True)
+plt.savefig('cache_sequential_vs_random.png')
+
+# Plot strided access
+plt.figure(figsize=(10, 6))
+
+strides = [1, 2, 4, 8, 16, 32, 64, 128]
+for stride in strides:
+    filename = f'strided_access_{stride}.csv'
+    if os.path.exists(filename):
+        sizes, times = read_csv(filename)
+        plt.plot(sizes, times, label=f'Stride {stride}')
+
+plt.xscale('log')
+plt.yscale('log')
+plt.xlabel('Array Size (bytes)')
+plt.ylabel('Access Time (ns)')
+plt.title('Cache Performance: Strided Access')
+plt.legend()
+plt.grid(True)
+plt.savefig('cache_strided_access.png')
+
+print("Plots saved as cache_sequential_vs_random.png and cache_strided_access.png")
+```
+
+### Step 5: Run the Benchmark
 
 Execute the benchmark script on both VMs:
 
 ```bash
-./run_cache_benchmark.sh | tee cache_benchmark_results.txt
+./run_cache_benchmark.sh
 ```
 
-### Step 5: Analyze the Results
+### Step 6: Visualize the Results
+
+Run the visualization script:
+
+```bash
+python3 plot_cache_results.py
+```
+
+### Step 7: Analyze the Results
 
 Compare the results from both architectures, focusing on:
 
-1. **Cache Hierarchy**: Identify the different cache levels from the latency jumps in the plot.
-2. **Cache Sizes**: Compare the effective cache sizes between architectures.
-3. **Cache Latencies**: Compare the access times for each cache level.
-4. **Memory Latency**: Compare the baseline memory access latency once outside of cache.
+1. **Cache Size Identification**: Look for "steps" in the access time graph, which indicate transitions between cache levels.
+2. **Cache Latency**: Compare the access times within each cache level.
+3. **Cache Hierarchy Impact**: Analyze how different access patterns affect performance on each architecture.
+4. **Stride Sensitivity**: Determine how each architecture handles different stride sizes.
 
 ### Interpretation
 
 When analyzing the results, consider these architecture-specific factors:
 
-- **Cache Organization**: Arm and x86 processors may have different cache hierarchies and associativity.
-- **Cache Coherence Protocols**: Different architectures may implement different cache coherence mechanisms.
-- **Prefetching Algorithms**: Processors may have different hardware prefetchers that affect cache performance.
-- **Cache Line Size**: While 64 bytes is common, some implementations may have different effective line sizes.
+- **Cache Sizes**: Different architectures have different L1, L2, and L3 cache sizes.
+- **Cache Line Size**: The size of a cache line affects how data is fetched from memory.
+- **Cache Associativity**: Higher associativity can reduce conflict misses but may increase lookup time.
+- **Prefetching**: Different architectures implement different prefetching strategies, which can affect sequential and strided access patterns.
+
+## Arm-specific Optimizations
+
+Arm architectures offer several optimization techniques to improve cache performance:
+
+### 1. Memory Prefetch Optimizations
+
+Create a file named `arm_prefetch.c`:
+
+```c
+#include <stdio.h>
+#include <stdlib.h>
+#include <time.h>
+#include <stdint.h>
+
+#define ARRAY_SIZE (64 * 1024 * 1024)  // 64MB
+#define ITERATIONS 10
+
+// Function to measure time
+double get_time() {
+    struct timespec ts;
+    clock_gettime(CLOCK_MONOTONIC, &ts);
+    return ts.tv_sec + ts.tv_nsec / 1.0e9;
+}
+
+// Standard sequential access
+void standard_access(int *array, size_t size) {
+    volatile int sum = 0;
+    
+    for (size_t i = 0; i < size; i++) {
+        sum += array[i];
+    }
+}
+
+// Arm-optimized access with prefetch
+void prefetch_access(int *array, size_t size) {
+    volatile int sum = 0;
+    
+    for (size_t i = 0; i < size; i++) {
+        // Prefetch data 64 elements ahead
+        #ifdef __aarch64__
+        __builtin_prefetch(&array[i + 64], 0, 3);
+        #endif
+        
+        sum += array[i];
+    }
+}
+
+// Arm-optimized access with multiple prefetch distances
+void multi_prefetch_access(int *array, size_t size) {
+    volatile int sum = 0;
+    
+    for (size_t i = 0; i < size; i++) {
+        #ifdef __aarch64__
+        // Prefetch at different distances for different cache levels
+        __builtin_prefetch(&array[i + 16], 0, 3);  // L1 cache
+        __builtin_prefetch(&array[i + 64], 0, 2);  // L2 cache
+        __builtin_prefetch(&array[i + 256], 0, 1); // L3 cache
+        #endif
+        
+        sum += array[i];
+    }
+}
+
+int main() {
+    // Allocate array
+    int *array = (int *)malloc(ARRAY_SIZE * sizeof(int));
+    if (!array) {
+        perror("malloc");
+        return 1;
+    }
+    
+    // Initialize array
+    for (size_t i = 0; i < ARRAY_SIZE; i++) {
+        array[i] = i;
+    }
+    
+    // Test standard access
+    double start = get_time();
+    for (int iter = 0; iter < ITERATIONS; iter++) {
+        standard_access(array, ARRAY_SIZE);
+    }
+    double end = get_time();
+    
+    printf("Standard access time: %.6f seconds\n", end - start);
+    
+    // Test prefetch access
+    start = get_time();
+    for (int iter = 0; iter < ITERATIONS; iter++) {
+        prefetch_access(array, ARRAY_SIZE);
+    }
+    end = get_time();
+    
+    printf("Prefetch access time: %.6f seconds\n", end - start);
+    
+    // Test multi-prefetch access
+    start = get_time();
+    for (int iter = 0; iter < ITERATIONS; iter++) {
+        multi_prefetch_access(array, ARRAY_SIZE);
+    }
+    end = get_time();
+    
+    printf("Multi-prefetch access time: %.6f seconds\n", end - start);
+    
+    free(array);
+    return 0;
+}
+```
+
+Compile with:
+
+```bash
+gcc -O3 -march=native arm_prefetch.c -o arm_prefetch
+```
+
+### 2. Arm Cache Management Instructions
+
+Create a file named `arm_cache_management.c`:
+
+```c
+#include <stdio.h>
+#include <stdlib.h>
+#include <time.h>
+#include <stdint.h>
+
+#define ARRAY_SIZE (16 * 1024 * 1024)  // 16MB
+#define ITERATIONS 10
+
+// Function to measure time
+double get_time() {
+    struct timespec ts;
+    clock_gettime(CLOCK_MONOTONIC, &ts);
+    return ts.tv_sec + ts.tv_nsec / 1.0e9;
+}
+
+// Standard array initialization
+void standard_init(int *array, size_t size) {
+    for (size_t i = 0; i < size; i++) {
+        array[i] = i;
+    }
+}
+
+// Arm-optimized initialization with cache management
+void cache_managed_init(int *array, size_t size) {
+    for (size_t i = 0; i < size; i++) {
+        array[i] = i;
+        
+        // Every 4096 elements (16KB), clean the cache line
+        if ((i & 0xFFF) == 0) {
+            #ifdef __aarch64__
+            // Clean data cache by virtual address to point of coherency
+            __asm__ volatile("dc cvac, %0" : : "r" (&array[i]) : "memory");
+            #endif
+        }
+    }
+    
+    #ifdef __aarch64__
+    // Data synchronization barrier
+    __asm__ volatile("dsb ish" : : : "memory");
+    #endif
+}
+
+// Benchmark function
+void benchmark_access(int *array, size_t size) {
+    volatile int sum = 0;
+    
+    for (size_t i = 0; i < size; i++) {
+        sum += array[i];
+    }
+}
+
+int main() {
+    // Allocate array
+    int *array = (int *)malloc(ARRAY_SIZE * sizeof(int));
+    if (!array) {
+        perror("malloc");
+        return 1;
+    }
+    
+    // Test standard initialization and access
+    double start = get_time();
+    standard_init(array, ARRAY_SIZE);
+    double mid = get_time();
+    for (int iter = 0; iter < ITERATIONS; iter++) {
+        benchmark_access(array, ARRAY_SIZE);
+    }
+    double end = get_time();
+    
+    printf("Standard initialization time: %.6f seconds\n", mid - start);
+    printf("Standard access time: %.6f seconds\n", end - mid);
+    
+    // Test cache-managed initialization and access
+    start = get_time();
+    cache_managed_init(array, ARRAY_SIZE);
+    mid = get_time();
+    for (int iter = 0; iter < ITERATIONS; iter++) {
+        benchmark_access(array, ARRAY_SIZE);
+    }
+    end = get_time();
+    
+    printf("Cache-managed initialization time: %.6f seconds\n", mid - start);
+    printf("Cache-managed access time: %.6f seconds\n", end - mid);
+    
+    free(array);
+    return 0;
+}
+```
+
+Compile with:
+
+```bash
+gcc -O3 -march=native arm_cache_management.c -o arm_cache_management
+```
+
+### 3. Key Arm Cache Optimization Techniques
+
+1. **Prefetch Instructions**: Use Arm-specific prefetch instructions to reduce cache miss penalties:
+   ```c
+   // Prefetch for read
+   __builtin_prefetch(addr, 0, 3);  // 0 = read, 3 = high temporal locality
+   
+   // Prefetch for write
+   __builtin_prefetch(addr, 1, 3);  // 1 = write
+   ```
+
+2. **Cache Line Alignment**: Align data structures to cache line boundaries (typically 64 bytes):
+   ```c
+   struct aligned_data {
+       int data[16];  // 64 bytes (assuming 4-byte ints)
+   } __attribute__((aligned(64)));
+   ```
+
+3. **Cache Management Instructions**: Use Arm-specific cache management instructions:
+   ```c
+   // Clean data cache by virtual address
+   __asm__ volatile("dc cvac, %0" : : "r" (addr));
+   
+   // Invalidate data cache by virtual address
+   __asm__ volatile("dc ivac, %0" : : "r" (addr));
+   
+   // Data synchronization barrier
+   __asm__ volatile("dsb ish");
+   ```
+
+4. **Non-temporal Loads and Stores**: For streaming data that won't be reused:
+   ```c
+   // On newer Arm processors with SVE
+   #ifdef __ARM_FEATURE_SVE
+   #include <arm_sve.h>
+   
+   void stream_store(float *dst, float *src, int size) {
+       for (int i = 0; i < size; i += svcntw()) {
+           svbool_t pg = svwhilelt_b32(i, size);
+           svfloat32_t data = svld1(pg, &src[i]);
+           svst1_f32(pg, &dst[i]);  // Non-temporal store
+       }
+   }
+   #endif
+   ```
+
+These optimizations can significantly improve cache performance on Arm architectures, especially for memory-intensive workloads.
 
 ## Relevance to Workloads
 
 Cache performance benchmarking is particularly important for:
 
-1. **Database Systems**: Query execution, index traversal, join operations
-2. **High-Performance Computing**: Scientific simulations with complex data structures
-3. **Game Engines**: Physics calculations, AI pathfinding, rendering pipelines
-4. **Financial Applications**: High-frequency trading, risk analysis
-5. **Compiler Optimization**: Understanding target architecture for better code generation
+1. **Data Processing Applications**: Database systems, analytics engines
+2. **Scientific Computing**: Simulations, numerical analysis
+3. **Media Processing**: Image and video processing
+4. **Machine Learning**: Training and inference operations
+5. **Game Engines**: Physics simulations, rendering
 
-Understanding cache performance differences between architectures helps developers optimize data structures and algorithms for specific platforms, potentially leading to significant performance improvements.
-
-## Knowledge Check
-
-1. If an application shows significantly better performance on a processor with smaller but lower-latency caches compared to one with larger but higher-latency caches, this suggests:
-   - A) The application has good temporal locality but poor spatial locality
-   - B) The application has poor temporal locality but good spatial locality
-   - C) The application's working set fits within the smaller cache
-   - D) The application is not cache-sensitive
-
-2. Which access pattern is most likely to benefit from larger cache sizes?
-   - A) Sequential access of a large array
-   - B) Random access across a large data structure
-   - C) Repeated access to a small set of variables
-   - D) Streaming data that is processed once and never reused
-
-3. If cache latency measurements show similar patterns but consistently higher latencies on one architecture, what might this indicate?
-   - A) The benchmark is biased toward one architecture
-   - B) One architecture has a fundamentally higher clock cycle time for cache access
-   - C) The operating system is interfering with cache performance
-   - D) The memory controller is slower on one architecture
-
-Answers:
-1. C) The application's working set fits within the smaller cache
-2. B) Random access across a large data structure
-3. B) One architecture has a fundamentally higher clock cycle time for cache access
+Understanding cache performance differences between architectures helps you optimize code for better performance by:
+- Structuring data to maximize spatial locality
+- Organizing algorithms to maximize temporal locality
+- Selecting appropriate data structures and access patterns
+- Tuning algorithms to match the cache hierarchy of the target architecture

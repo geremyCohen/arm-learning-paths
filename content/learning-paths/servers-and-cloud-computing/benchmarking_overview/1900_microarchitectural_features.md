@@ -412,6 +412,235 @@ When analyzing the results, consider these architecture-specific factors:
 - **Memory Dependency Prediction**: The ability to predict and speculatively execute around memory dependencies.
 - **Register Renaming Capacity**: The number of architectural registers that can be renamed to physical registers.
 
+## Arm-specific Optimizations
+
+Arm architectures offer several optimization techniques to leverage their unique microarchitectural features:
+
+### 1. Optimizing for Arm's Out-of-Order Execution
+
+Create a file named `arm_ooo_opt.c`:
+
+```c
+#include <stdio.h>
+#include <stdlib.h>
+#include <time.h>
+#include <stdint.h>
+
+#define ITERATIONS 10000000
+
+// Function to measure time
+double get_time() {
+    struct timespec ts;
+    clock_gettime(CLOCK_MONOTONIC, &ts);
+    return ts.tv_sec + ts.tv_nsec / 1.0e9;
+}
+
+// Function with long dependency chains (poor for OoO)
+uint64_t long_dependency_chain() {
+    uint64_t a = 1;
+    
+    for (int i = 0; i < ITERATIONS; i++) {
+        a = a * 3 + 1;  // Each iteration depends on previous result
+    }
+    
+    return a;
+}
+
+// Function optimized for Arm OoO execution
+uint64_t arm_ooo_optimized() {
+    uint64_t a = 1, b = 2, c = 3, d = 4;
+    
+    for (int i = 0; i < ITERATIONS; i++) {
+        // Multiple independent operations for better OoO execution
+        a = a * 3 + 1;
+        b = b * 5 + 2;
+        c = c * 7 + 3;
+        d = d * 9 + 4;
+    }
+    
+    return a + b + c + d;
+}
+
+int main() {
+    printf("CPU Architecture: %s\n", 
+        #ifdef __aarch64__
+        "aarch64"
+        #else
+        "other"
+        #endif
+    );
+    
+    // Test with long dependency chain
+    double start = get_time();
+    uint64_t result1 = long_dependency_chain();
+    double end = get_time();
+    printf("Long dependency chain time: %.6f seconds\n", end - start);
+    
+    // Test with Arm OoO optimized code
+    start = get_time();
+    uint64_t result2 = arm_ooo_optimized();
+    end = get_time();
+    printf("Arm OoO optimized time: %.6f seconds\n", end - start);
+    
+    // Calculate speedup
+    double speedup = (end - start) > 0 ? 
+        (end - start) / (end - start) : 0;
+    printf("Speedup: %.2fx\n", speedup);
+    
+    // Prevent optimization
+    printf("Results: %lu %lu\n", result1, result2);
+    
+    return 0;
+}
+```
+
+Compile with:
+
+```bash
+gcc -O3 -march=native arm_ooo_opt.c -o arm_ooo_opt
+```
+
+### 2. Optimizing for Arm's Reorder Buffer
+
+Create a file named `arm_rob_opt.c`:
+
+```c
+#include <stdio.h>
+#include <stdlib.h>
+#include <time.h>
+#include <stdint.h>
+
+#define ARRAY_SIZE 1024
+#define ITERATIONS 1000000
+
+// Function to measure time
+double get_time() {
+    struct timespec ts;
+    clock_gettime(CLOCK_MONOTONIC, &ts);
+    return ts.tv_sec + ts.tv_nsec / 1.0e9;
+}
+
+// Function with instruction window that exceeds ROB size
+uint64_t exceed_rob_size(uint32_t *array) {
+    uint64_t sum = 0;
+    
+    for (int iter = 0; iter < ITERATIONS; iter++) {
+        // Large number of operations in a tight loop
+        for (int i = 0; i < ARRAY_SIZE; i++) {
+            array[i] = array[i] + 1;
+        }
+        sum += array[0];
+    }
+    
+    return sum;
+}
+
+// Function optimized for Arm's ROB size
+uint64_t arm_rob_optimized(uint32_t *array) {
+    uint64_t sum = 0;
+    
+    for (int iter = 0; iter < ITERATIONS; iter++) {
+        // Process in chunks that fit within ROB
+        for (int chunk = 0; chunk < ARRAY_SIZE; chunk += 64) {
+            for (int i = chunk; i < chunk + 64 && i < ARRAY_SIZE; i++) {
+                array[i] = array[i] + 1;
+            }
+        }
+        sum += array[0];
+    }
+    
+    return sum;
+}
+
+int main() {
+    // Allocate and initialize array
+    uint32_t *array1 = (uint32_t *)malloc(ARRAY_SIZE * sizeof(uint32_t));
+    uint32_t *array2 = (uint32_t *)malloc(ARRAY_SIZE * sizeof(uint32_t));
+    
+    if (!array1 || !array2) {
+        perror("malloc");
+        return 1;
+    }
+    
+    for (int i = 0; i < ARRAY_SIZE; i++) {
+        array1[i] = array2[i] = i;
+    }
+    
+    printf("CPU Architecture: %s\n", 
+        #ifdef __aarch64__
+        "aarch64"
+        #else
+        "other"
+        #endif
+    );
+    
+    // Test with code that exceeds ROB size
+    double start = get_time();
+    uint64_t result1 = exceed_rob_size(array1);
+    double end = get_time();
+    printf("Exceeding ROB size time: %.6f seconds\n", end - start);
+    
+    // Test with Arm ROB optimized code
+    start = get_time();
+    uint64_t result2 = arm_rob_optimized(array2);
+    double end2 = get_time();
+    printf("Arm ROB optimized time: %.6f seconds\n", end2 - start);
+    
+    // Calculate speedup
+    double speedup = (end - start) > 0 ? 
+        (end - start) / (end2 - start) : 0;
+    printf("Speedup: %.2fx\n", speedup);
+    
+    // Prevent optimization
+    printf("Results: %lu %lu\n", result1, result2);
+    
+    free(array1);
+    free(array2);
+    return 0;
+}
+```
+
+Compile with:
+
+```bash
+gcc -O3 -march=native arm_rob_opt.c -o arm_rob_opt
+```
+
+### 3. Key Arm Microarchitectural Optimization Techniques
+
+1. **Instruction Fusion**: Arm processors can fuse certain instruction pairs. Arrange code to take advantage of this:
+   ```c
+   // These instructions might be fused on Arm
+   if (x == 0) {  // Compare and branch
+       // ...
+   }
+   ```
+
+2. **Optimizing for Arm's ROB Size**: Break large instruction sequences into chunks that fit within the reorder buffer (typically 128-256 entries on modern Arm cores).
+
+3. **Minimizing Register Pressure**: Arm processors have 31 general-purpose registers in 64-bit mode, but excessive register usage can still cause spills:
+   ```c
+   // Instead of using many variables in a function
+   int a, b, c, d, e, f, g, h, i, j, k, l, m, n, o, p, q, r, s, t, u, v, w, x, y, z;
+   
+   // Process data in smaller chunks with fewer live variables
+   ```
+
+4. **Leveraging Arm's Rename Capacity**: Arm processors can typically rename more registers than x86, so code with more independent operations can benefit.
+
+5. **Arm-specific Compiler Flags**:
+   ```bash
+   gcc -O3 -march=native -mtune=native -fomit-frame-pointer
+   ```
+
+6. **Memory Access Patterns**: Optimize for Arm's memory subsystem:
+   ```c
+   // Ensure 16-byte alignment for NEON operations
+   float *data __attribute__((aligned(16))) = malloc(size * sizeof(float));
+   ```
+
+These optimizations can significantly improve performance by better utilizing Arm's microarchitectural features, especially for compute-intensive applications.
+
 ## Relevance to Workloads
 
 Microarchitectural feature benchmarking is particularly important for:
