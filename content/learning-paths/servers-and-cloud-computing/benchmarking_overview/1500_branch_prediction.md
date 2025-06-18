@@ -144,6 +144,7 @@ int main(int argc, char *argv[]) {
 Compile the benchmark:
 
 ```bash
+# See: ../2400_compiler_optimizations.md#cpu-specific-flags
 gcc -O2 branch_benchmark.c -o branch_benchmark
 ```
 

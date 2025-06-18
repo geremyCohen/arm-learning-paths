@@ -203,6 +203,7 @@ int main() {
 Compile with PAC support:
 
 ```bash
+# See: ../2400_compiler_optimizations.md#cpu-specific-flags
 gcc -O3 -march=armv8.3-a+pauth pac_benchmark.c -o pac_benchmark
 ```
 
@@ -302,6 +303,7 @@ int main() {
 Compile with PAC return address signing:
 
 ```bash
+# See: ../2400_compiler_optimizations.md#cpu-specific-flags
 gcc -O3 -march=armv8.3-a+pauth -mbranch-protection=pac-ret pac_return_benchmark.c -o pac_return_benchmark
 ```
 

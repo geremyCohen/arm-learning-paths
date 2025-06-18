@@ -415,6 +415,36 @@ The code in this chapter uses runtime detection to automatically select the best
 - [Arm Neoverse V1 Technical Reference Manual](https://developer.arm.com/documentation/101427/latest/)
 - [Arm Neoverse N2 Technical Reference Manual](https://developer.arm.com/documentation/101675/latest/)
 
+## Compiler Optimizations for SVE/SVE2
+
+To maximize the performance of SVE and SVE2 code on Neoverse processors, use these compiler optimizations:
+
+```bash
+# For Neoverse V1 (SVE)
+# See: ../2400_compiler_optimizations.md#cpu-specific-flags
+gcc -O3 -mcpu=neoverse-v1 -ffast-math -ftree-vectorize sve_code.c -o sve_optimized
+
+# For Neoverse N2 (SVE2)
+# See: ../2400_compiler_optimizations.md#cpu-specific-flags
+gcc -O3 -mcpu=neoverse-n2 -ffast-math -ftree-vectorize sve2_code.c -o sve2_optimized
+
+# For portable code with runtime detection
+# See: ../2400_compiler_optimizations.md#link-time-optimization
+gcc -O3 -march=armv8.2-a -ffast-math -ftree-vectorize -flto vector_code.c -o vector_optimized
+```
+
+### Optimization Trade-offs
+
+| Optimization | Performance Impact | Compatibility | When to Use |
+|--------------|-------------------|--------------|------------|
+| `-mcpu=neoverse-xx` | High (+) | Specific to CPU | Production builds for known hardware |
+| `-march=armv8.2-a` | Medium (+) | Works on all Neoverse | Portable binaries |
+| `-ffast-math` | Medium (+) | May affect precision | When IEEE compliance isn't critical |
+| `-ftree-vectorize` | High (+) | Safe | Always with -O2 or higher |
+| `-flto` | High (+) | Increases build time | Final production builds |
+
+For development and debugging, use `-O0 -g` to disable optimizations and preserve debug information.
+
 ## Relevance to Cloud Computing Workloads
 
 Vector performance optimization is particularly important for cloud computing on Neoverse:

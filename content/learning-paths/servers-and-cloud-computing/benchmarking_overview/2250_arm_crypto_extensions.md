@@ -159,7 +159,8 @@ int main() {
 Compile with OpenSSL support:
 
 ```bash
-gcc -O3 aes_benchmark.c -o aes_benchmark -lcrypto
+# See: ../2400_compiler_optimizations.md#cpu-specific-flags
+gcc -O3 -march=armv8.2-a+crypto aes_benchmark.c -o aes_benchmark -lcrypto
 ```
 
 ### Step 3: Create SHA Benchmark
@@ -239,7 +240,8 @@ int main() {
 Compile with OpenSSL support:
 
 ```bash
-gcc -O3 sha_benchmark.c -o sha_benchmark -lcrypto
+# See: ../2400_compiler_optimizations.md#cpu-specific-flags
+gcc -O3 -march=armv8.2-a+crypto sha_benchmark.c -o sha_benchmark -lcrypto
 ```
 
 ### Step 4: Create Benchmark Script
