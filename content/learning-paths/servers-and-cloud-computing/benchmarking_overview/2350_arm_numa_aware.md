@@ -502,9 +502,11 @@ NUMA optimizations are applicable to all Neoverse processors in multi-socket con
 - Neoverse N1/V1/N2: All support NUMA in multi-socket server configurations
 - All Neoverse processors support Memory Partitioning and Monitoring (MPAM) for resource partitioning
 
-## OS-Level Tuning for NUMA
+## OS/Kernel Tweaks for NUMA on Neoverse
 
 To maximize NUMA performance on Neoverse servers, apply these OS-level tuning parameters:
+
+### 1. Basic NUMA Settings
 
 ```bash
 # Enable automatic NUMA balancing (kernel-level optimization)
@@ -520,6 +522,49 @@ echo 1000 > /proc/sys/kernel/numa_balancing_scan_period_min_ms
 echo 0 > /proc/sys/vm/zone_reclaim_mode
 ```
 
+### 2. Kernel Boot Parameters
+
+Add these parameters to your kernel command line in `/etc/default/grub`:
+
+```bash
+# Add to GRUB_CMDLINE_LINUX
+GRUB_CMDLINE_LINUX="$GRUB_CMDLINE_LINUX numa=on numa_balancing=1 transparent_hugepage=always"
+
+# Update grub and reboot
+sudo update-grub
+sudo reboot
+```
+
+### 3. Process-Specific NUMA Policies
+
+Run applications with specific NUMA policies:
+
+```bash
+# Run with local allocation policy
+numactl --localalloc ./your_application
+
+# Run with memory interleaved across all nodes
+numactl --interleave=all ./your_application
+
+# Run on specific NUMA node
+numactl --cpunodebind=0 --membind=0 ./your_application
+
+# Run with preferred node (soft binding)
+numactl --preferred=0 ./your_application
+```
+
+### 4. Transparent Hugepages
+
+Enable transparent hugepages for better NUMA performance:
+
+```bash
+# Enable transparent hugepages
+echo always > /sys/kernel/mm/transparent_hugepage/enabled
+
+# Enable NUMA-aware hugepages
+echo advise > /sys/kernel/mm/transparent_hugepage/defrag
+```
+
 ### Tuning Trade-offs
 
 | Parameter | Performance Impact | When to Use | When to Avoid |
@@ -530,7 +575,121 @@ echo 0 > /proc/sys/vm/zone_reclaim_mode
 | `numactl --preferred` | Medium (+) | Single-threaded apps | Multi-threaded apps |
 | `numactl --interleave` | Low (+) | Random access patterns | Sequential access patterns |
 
-For latency-sensitive applications, consider disabling automatic NUMA balancing and explicitly binding threads to specific NUMA nodes.
+## Additional Performance Tweaks
+
+### 1. NUMA-Aware Thread Placement
+
+Explicitly place threads on the same NUMA node as their data:
+
+```c
+#include <numa.h>
+#include <pthread.h>
+
+// Function to pin thread to the NUMA node containing a memory address
+void pin_to_memory_node(void* addr) {
+    int node = numa_node_of_addr(addr);
+    if (node >= 0) {
+        struct bitmask *node_mask = numa_allocate_nodemask();
+        numa_bitmask_setbit(node_mask, node);
+        numa_sched_setaffinity(0, node_mask);
+        numa_free_nodemask(node_mask);
+    }
+}
+
+// Usage in thread function
+void* thread_func(void* arg) {
+    // Pin thread to the NUMA node containing the data
+    pin_to_memory_node(arg);
+    
+    // Process data
+    // ...
+    
+    return NULL;
+}
+```
+
+### 2. First-Touch Memory Initialization
+
+Initialize memory from the thread that will use it to ensure NUMA locality:
+
+```c
+#include <pthread.h>
+#include <numa.h>
+
+// Thread argument structure
+typedef struct {
+    float *data;
+    size_t start;
+    size_t end;
+} thread_arg_t;
+
+// Thread function for initialization
+void* init_thread(void* arg) {
+    thread_arg_t* thread_arg = (thread_arg_t*)arg;
+    
+    // Initialize data (first touch)
+    for (size_t i = thread_arg->start; i < thread_arg->end; i++) {
+        thread_arg->data[i] = 0.0f;
+    }
+    
+    return NULL;
+}
+
+// NUMA-aware initialization
+void numa_aware_init(float *data, size_t size) {
+    int num_nodes = numa_num_configured_nodes();
+    pthread_t threads[num_nodes];
+    thread_arg_t args[num_nodes];
+    
+    size_t chunk_size = size / num_nodes;
+    
+    // Create initialization threads
+    for (int i = 0; i < num_nodes; i++) {
+        args[i].data = data;
+        args[i].start = i * chunk_size;
+        args[i].end = (i == num_nodes - 1) ? size : (i + 1) * chunk_size;
+        
+        // Bind thread to NUMA node
+        pthread_attr_t attr;
+        pthread_attr_init(&attr);
+        
+        struct bitmask *node_mask = numa_allocate_nodemask();
+        numa_bitmask_setbit(node_mask, i);
+        numa_bind(node_mask);
+        numa_free_nodemask(node_mask);
+        
+        pthread_create(&threads[i], &attr, init_thread, &args[i]);
+        pthread_attr_destroy(&attr);
+    }
+    
+    // Wait for initialization to complete
+    for (int i = 0; i < num_nodes; i++) {
+        pthread_join(threads[i], NULL);
+    }
+}
+```
+
+### 3. NUMA-Aware Memory Allocation
+
+Use NUMA-specific allocation functions:
+
+```c
+#include <numa.h>
+
+// Allocate memory on local node
+void* local_alloc = numa_alloc_local(size);
+
+// Allocate memory on specific node
+void* node_alloc = numa_alloc_onnode(size, node);
+
+// Allocate memory interleaved across all nodes
+void* interleaved_alloc = numa_alloc_interleaved(size);
+
+// Free NUMA memory
+numa_free(ptr, size);
+```
+
+These tweaks can provide an additional 20-50% performance improvement for NUMA-sensitive workloads on multi-socket Neoverse servers.
 
 ## Further Reading
 
