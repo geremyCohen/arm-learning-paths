@@ -190,6 +190,7 @@ int main() {
 Compile with NEON support:
 
 ```bash
+# See: ../2400_compiler_optimizations.md#cpu-specific-flags
 gcc -O3 -march=native fir_filter_benchmark.c -o fir_filter_benchmark
 ```
 
@@ -390,6 +391,7 @@ int main() {
 Compile with:
 
 ```bash
+# See: ../2400_compiler_optimizations.md#math-optimizations
 gcc -O3 -march=native fft_benchmark.c -o fft_benchmark -lm
 ```
 
@@ -544,6 +546,7 @@ int main() {
 Compile with:
 
 ```bash
+# See: ../2400_compiler_optimizations.md#combined-optimizations
 gcc -O3 -march=native saturating_arithmetic.c -o saturating_arithmetic
 ```
 

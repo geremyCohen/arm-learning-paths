@@ -156,6 +156,7 @@ int main() {
 Compile the benchmark:
 
 ```bash
+# See: ../2400_compiler_optimizations.md#cpu-specific-flags
 gcc -O3 -march=native prefetch_benchmark.c -o prefetch_benchmark
 ```
 
@@ -250,6 +251,7 @@ int main() {
 Compile the stride benchmark:
 
 ```bash
+# See: ../2400_compiler_optimizations.md#combined-optimizations
 gcc -O3 -march=native stride_prefetch_benchmark.c -o stride_prefetch_benchmark
 ```
 
@@ -477,6 +479,7 @@ int main() {
 Compile with:
 
 ```bash
+# See: ../2400_compiler_optimizations.md#cpu-specific-flags
 gcc -O3 -march=native arm_prefetch_types.c -o arm_prefetch_types
 ```
 

@@ -211,6 +211,7 @@ int main() {
 Compile the benchmark:
 
 ```bash
+# See: ../2400_compiler_optimizations.md#cpu-specific-flags
 gcc -O3 -march=native cache_management_benchmark.c -o cache_management_benchmark
 ```
 
@@ -455,6 +456,7 @@ int main() {
 Compile the cache coherency benchmark:
 
 ```bash
+# See: ../2400_compiler_optimizations.md#combined-optimizations
 gcc -O3 -march=native -pthread cache_coherency_benchmark.c -o cache_coherency_benchmark
 ```
 
@@ -637,6 +639,7 @@ int main() {
 Compile with:
 
 ```bash
+# See: ../2400_compiler_optimizations.md#cpu-specific-flags
 gcc -O3 -march=native zero_copy_benchmark.c -o zero_copy_benchmark
 ```
 

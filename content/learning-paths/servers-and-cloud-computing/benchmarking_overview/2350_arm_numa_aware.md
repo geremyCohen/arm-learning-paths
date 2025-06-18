@@ -259,6 +259,7 @@ int main() {
 Compile with NUMA support:
 
 ```bash
+# See: ../2400_compiler_optimizations.md#cpu-specific-flags
 gcc -O3 -pthread numa_benchmark.c -o numa_benchmark -lnuma
 ```
 
@@ -410,6 +411,7 @@ int main() {
 Compile with:
 
 ```bash
+# See: ../2400_compiler_optimizations.md#combined-optimizations
 gcc -O3 numa_alloc.c -o numa_alloc -lnuma
 ```
 
@@ -499,6 +501,36 @@ These NUMA optimizations are critical for Neoverse-based multi-socket servers in
 NUMA optimizations are applicable to all Neoverse processors in multi-socket configurations:
 - Neoverse N1/V1/N2: All support NUMA in multi-socket server configurations
 - All Neoverse processors support Memory Partitioning and Monitoring (MPAM) for resource partitioning
+
+## OS-Level Tuning for NUMA
+
+To maximize NUMA performance on Neoverse servers, apply these OS-level tuning parameters:
+
+```bash
+# Enable automatic NUMA balancing (kernel-level optimization)
+echo 1 > /proc/sys/kernel/numa_balancing
+
+# Set NUMA balancing scan delay (milliseconds)
+echo 1000 > /proc/sys/kernel/numa_balancing_scan_delay_ms
+
+# Set NUMA balancing scan period (milliseconds)
+echo 1000 > /proc/sys/kernel/numa_balancing_scan_period_min_ms
+
+# Configure zone reclaim mode (0=off, 1=on)
+echo 0 > /proc/sys/vm/zone_reclaim_mode
+```
+
+### Tuning Trade-offs
+
+| Parameter | Performance Impact | When to Use | When to Avoid |
+|-----------|-------------------|------------|--------------|
+| `numa_balancing=1` | Medium (+) | Most workloads | Very latency-sensitive apps |
+| `zone_reclaim_mode=0` | High (+) | Most workloads | Memory-constrained systems |
+| `zone_reclaim_mode=1` | Medium (-) | High memory pressure | Low-latency requirements |
+| `numactl --preferred` | Medium (+) | Single-threaded apps | Multi-threaded apps |
+| `numactl --interleave` | Low (+) | Random access patterns | Sequential access patterns |
+
+For latency-sensitive applications, consider disabling automatic NUMA balancing and explicitly binding threads to specific NUMA nodes.
 
 ## Further Reading
 

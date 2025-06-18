@@ -274,6 +274,7 @@ int main() {
 Compile with MTE support:
 
 ```bash
+# See: ../2400_compiler_optimizations.md#cpu-specific-flags
 gcc -O3 -march=armv8.5-a+memtag mte_benchmark.c -o mte_benchmark
 ```
 
