@@ -1,8 +1,6 @@
 ---
 title: Branch Prediction and Speculative Execution
 weight: 1500
-
-### FIXED, DO NOT MODIFY
 layout: learningpathall
 ---
 
@@ -17,11 +15,39 @@ For more detailed information about branch prediction and speculative execution,
 - [CPU Branch Predictor Performance](https://www.agner.org/optimize/microarchitecture.pdf)
 - [Speculative Execution in Modern CPUs](https://en.wikipedia.org/wiki/Speculative_execution)
 
-## Benchmarking Exercise: Comparing Branch Prediction Performance
-
-In this exercise, we'll measure and compare branch prediction performance across Intel/AMD and Arm architectures using various branch patterns.
+## Benchmarking Exercise
 
 ### Prerequisites
+
+Ensure you have:
+- Completed the repository setup from the previous chapter
+- Two Ubuntu systems with the bench_guide repository cloned
+
+### Step 1: Navigate to Directory
+
+Navigate to the benchmark directory:
+
+```bash
+cd bench_guide/branch_prediction
+```
+
+### Step 2: Install Dependencies
+
+Run the setup script:
+
+```bash
+./setup.sh
+```
+
+### Step 3: Run the Benchmark
+
+Execute the benchmark:
+
+```bash
+./benchmark.sh
+```
+
+### Step 4: Analyze the Results
 
 Ensure you have two Ubuntu VMs:
 - One running on Intel/AMD (x86_64)
@@ -29,168 +55,48 @@ Ensure you have two Ubuntu VMs:
 
 Both should have similar specifications for fair comparison.
 
-### Step 1: Install Required Tools
+### Step 1: Download and Run Setup Script
 
-Run the following commands on both VMs:
-
-```bash
-sudo apt update
-sudo apt install -y build-essential linux-tools-common linux-tools-generic
-```
-
-### Step 2: Create Branch Prediction Benchmark
-
-Create a file named `branch_benchmark.c` with the following content:
-
-```c
-#include <stdio.h>
-#include <stdlib.h>
-#include <time.h>
-#include <stdint.h>
-
-#define ARRAY_SIZE 10000000
-#define ITERATIONS 100
-
-// Function to measure time
-double get_time() {
-    struct timespec ts;
-    clock_gettime(CLOCK_MONOTONIC, &ts);
-    return ts.tv_sec + ts.tv_nsec / 1.0e9;
-}
-
-// Create different branch patterns
-void create_pattern(int *array, int pattern) {
-    for (int i = 0; i < ARRAY_SIZE; i++) {
-        switch (pattern) {
-            case 0: // Always taken
-                array[i] = 1;
-                break;
-            case 1: // Never taken
-                array[i] = 0;
-                break;
-            case 2: // Alternating
-                array[i] = i % 2;
-                break;
-            case 3: // Random
-                array[i] = rand() % 2;
-                break;
-            case 4: // Mostly taken (90%)
-                array[i] = (rand() % 100) < 90 ? 1 : 0;
-                break;
-            default:
-                array[i] = rand() % 2;
-        }
-    }
-}
-
-// Test branch prediction
-uint64_t test_branches(int *array, int pattern) {
-    uint64_t sum = 0;
-    
-    for (int iter = 0; iter < ITERATIONS; iter++) {
-        for (int i = 0; i < ARRAY_SIZE; i++) {
-            if (array[i]) {
-                sum += i;
-            } else {
-                sum -= i;
-            }
-        }
-    }
-    
-    return sum;
-}
-
-int main(int argc, char *argv[]) {
-    int pattern = 0;
-    if (argc > 1) {
-        pattern = atoi(argv[1]);
-    }
-    
-    // Allocate array
-    int *array = (int *)malloc(ARRAY_SIZE * sizeof(int));
-    if (!array) {
-        perror("malloc");
-        return 1;
-    }
-    
-    // Initialize random seed
-    srand(time(NULL));
-    
-    // Create pattern
-    create_pattern(array, pattern);
-    
-    // Warm up
-    volatile uint64_t result = test_branches(array, pattern);
-    
-    // Benchmark
-    double start_time = get_time();
-    result = test_branches(array, pattern);
-    double end_time = get_time();
-    
-    double elapsed = end_time - start_time;
-    double branches_per_second = (double)ARRAY_SIZE * ITERATIONS / elapsed;
-    
-    printf("Pattern: %d\n", pattern);
-    printf("Time: %.6f seconds\n", elapsed);
-    printf("Branches per second: %.2f million\n", branches_per_second / 1000000);
-    printf("Result: %lu\n", result);
-    
-    // Clean up
-    free(array);
-    return 0;
-}
-```
-
-Compile the benchmark:
+Download and run the setup script to install required tools:
 
 ```bash
-# See: ../2400_compiler_optimizations.md#cpu-specific-flags
-gcc -O2 branch_benchmark.c -o branch_benchmark
+curl -O https://raw.githubusercontent.com/geremyCohen/bench_guide/main/branch_prediction/setup.sh
+chmod +x setup.sh
+./setup.sh
 ```
 
-### Step 3: Create Benchmark Script
+This script installs the necessary packages (build-essential, linux-tools-common, linux-tools-generic) on both VMs.
 
-Create a file named `run_branch_benchmark.sh` with the following content:
+### Step 2: Download Benchmark Files
 
-```bash
-#!/bin/bash
-
-# Get architecture
-arch=$(uname -m)
-echo "Architecture: $arch"
-echo "CPU: $(lscpu | grep 'Model name' | cut -d: -f2 | xargs)"
-
-# Initialize results file
-echo "pattern,time,branches_per_second" > branch_results.csv
-
-# Run benchmarks for different patterns
-for pattern in 0 1 2 3 4; do
-    echo "Running pattern $pattern..."
-    
-    # Run with perf if available
-    if command -v perf &> /dev/null; then
-        echo "Measuring branch mispredictions..."
-        perf stat -e branches,branch-misses ./branch_benchmark $pattern 2>&1 | tee pattern_${pattern}_perf.txt
-    fi
-    
-    # Run normal benchmark
-    ./branch_benchmark $pattern | tee pattern_${pattern}.txt
-    
-    # Extract results
-    time=$(grep "Time:" pattern_${pattern}.txt | awk '{print $2}')
-    branches=$(grep "Branches per second:" pattern_${pattern}.txt | awk '{print $4}')
-    
-    # Save to CSV
-    echo "$pattern,$time,$branches" >> branch_results.csv
-done
-
-echo "Benchmark complete. Results saved to branch_results.csv"
-```
-
-Make the script executable:
+Download the benchmark files:
 
 ```bash
+# Download the basic benchmark
+curl -O https://raw.githubusercontent.com/geremyCohen/bench_guide/main/branch_prediction/branch_benchmark.c
+curl -O https://raw.githubusercontent.com/geremyCohen/bench_guide/main/branch_prediction/run_branch_benchmark.sh
 chmod +x run_branch_benchmark.sh
+
+# For Arm systems, also download the optimized version
+if [ "$(uname -m)" = "aarch64" ]; then
+    curl -O https://raw.githubusercontent.com/geremyCohen/bench_guide/main/branch_prediction/branch_benchmark_arm_optimized.c
+    curl -O https://raw.githubusercontent.com/geremyCohen/bench_guide/main/branch_prediction/run_arm_optimized_benchmark.sh
+    chmod +x run_arm_optimized_benchmark.sh
+fi
+```
+
+### Step 3: Compile the Benchmarks
+
+Compile the benchmark code:
+
+```bash
+# Compile the basic benchmark
+gcc -O2 branch_benchmark.c -o branch_benchmark
+
+# For Arm systems, also compile the optimized version
+if [ "$(uname -m)" = "aarch64" ]; then
+    gcc -O3 -march=native -mtune=native branch_benchmark_arm_optimized.c -o branch_benchmark_arm_optimized
+fi
 ```
 
 ### Step 4: Run the Benchmark
@@ -225,157 +131,6 @@ Arm architectures offer several optimization techniques to improve branch predic
 
 Create a file named `branch_benchmark_arm_optimized.c` with the following content:
 
-```c
-#include <stdio.h>
-#include <stdlib.h>
-#include <time.h>
-#include <stdint.h>
-
-#define ARRAY_SIZE 10000000
-#define ITERATIONS 100
-
-// Function to measure time
-double get_time() {
-    struct timespec ts;
-    clock_gettime(CLOCK_MONOTONIC, &ts);
-    return ts.tv_sec + ts.tv_nsec / 1.0e9;
-}
-
-// Create different branch patterns
-void create_pattern(int *array, int pattern) {
-    for (int i = 0; i < ARRAY_SIZE; i++) {
-        switch (pattern) {
-            case 0: // Always taken
-                array[i] = 1;
-                break;
-            case 1: // Never taken
-                array[i] = 0;
-                break;
-            case 2: // Alternating
-                array[i] = i % 2;
-                break;
-            case 3: // Random
-                array[i] = rand() % 2;
-                break;
-            case 4: // Mostly taken (90%)
-                array[i] = (rand() % 100) < 90 ? 1 : 0;
-                break;
-            default:
-                array[i] = rand() % 2;
-        }
-    }
-}
-
-// Test branch prediction with Arm-specific hints
-uint64_t test_branches_optimized(int *array, int pattern) {
-    uint64_t sum = 0;
-    
-    for (int iter = 0; iter < ITERATIONS; iter++) {
-        for (int i = 0; i < ARRAY_SIZE; i++) {
-            // Use Arm-specific branch hint intrinsics
-            #ifdef __aarch64__
-            if (__builtin_expect(array[i], 1)) {  // Hint that branch is likely taken
-                sum += i;
-            } else {
-                sum -= i;
-            }
-            #else
-            if (array[i]) {
-                sum += i;
-            } else {
-                sum -= i;
-            }
-            #endif
-        }
-    }
-    
-    return sum;
-}
-
-// Test with branch-free code (especially effective on Arm)
-uint64_t test_branchless(int *array, int pattern) {
-    uint64_t sum = 0;
-    
-    for (int iter = 0; iter < ITERATIONS; iter++) {
-        for (int i = 0; i < ARRAY_SIZE; i++) {
-            // Branch-free version using conditional select
-            #ifdef __aarch64__
-            int64_t value = (int64_t)i;
-            int64_t neg_value = -value;
-            int64_t mask = -(int64_t)array[i];  // 0 or -1
-            sum += ((value & mask) | (neg_value & ~mask));
-            #else
-            if (array[i]) {
-                sum += i;
-            } else {
-                sum -= i;
-            }
-            #endif
-        }
-    }
-    
-    return sum;
-}
-
-int main(int argc, char *argv[]) {
-    int pattern = 0;
-    int test_type = 0;
-    
-    if (argc > 1) {
-        pattern = atoi(argv[1]);
-    }
-    
-    if (argc > 2) {
-        test_type = atoi(argv[2]);
-    }
-    
-    // Allocate array
-    int *array = (int *)malloc(ARRAY_SIZE * sizeof(int));
-    if (!array) {
-        perror("malloc");
-        return 1;
-    }
-    
-    // Initialize random seed
-    srand(time(NULL));
-    
-    // Create pattern
-    create_pattern(array, pattern);
-    
-    // Warm up
-    volatile uint64_t result;
-    if (test_type == 0) {
-        result = test_branches_optimized(array, pattern);
-    } else {
-        result = test_branchless(array, pattern);
-    }
-    
-    // Benchmark
-    double start_time = get_time();
-    
-    if (test_type == 0) {
-        result = test_branches_optimized(array, pattern);
-    } else {
-        result = test_branchless(array, pattern);
-    }
-    
-    double end_time = get_time();
-    
-    double elapsed = end_time - start_time;
-    double branches_per_second = (double)ARRAY_SIZE * ITERATIONS / elapsed;
-    
-    printf("Pattern: %d\n", pattern);
-    printf("Test type: %s\n", test_type == 0 ? "Branch hints" : "Branchless");
-    printf("Time: %.6f seconds\n", elapsed);
-    printf("Operations per second: %.2f million\n", branches_per_second / 1000000);
-    printf("Result: %lu\n", result);
-    
-    // Clean up
-    free(array);
-    return 0;
-}
-```
-
 ### 2. Compile with Arm-specific Optimizations
 
 Compile the optimized benchmark with Arm-specific flags:
@@ -385,88 +140,20 @@ Compile the optimized benchmark with Arm-specific flags:
 gcc -O3 -march=native -mtune=native branch_benchmark_arm_optimized.c -o branch_benchmark_arm_optimized
 ```
 
-### 3. Create Optimized Benchmark Script
+### 3. Run the Optimized Benchmark on Arm
 
-Create a file named `run_arm_optimized_benchmark.sh` with the following content:
+If you're using an Arm system, run the optimized benchmark:
 
 ```bash
-#!/bin/bash
-
-# Check if running on Arm
-arch=$(uname -m)
-if [[ "$arch" != "aarch64" ]]; then
-    echo "This script is designed for Arm architectures only."
-    exit 1
-fi
-
-echo "Architecture: $arch"
-echo "CPU: $(lscpu | grep 'Model name' | cut -d: -f2 | xargs)"
-
-# Initialize results file
-echo "pattern,test_type,time,operations_per_second" > arm_optimized_results.csv
-
-# Run benchmarks for different patterns
-for pattern in 0 1 2 3 4; do
-    echo "Running pattern $pattern..."
-    
-    # Run with branch hints
-    echo "  With branch hints..."
-    ./branch_benchmark_arm_optimized $pattern 0 | tee pattern_${pattern}_hints.txt
-    
-    # Run branchless version
-    echo "  With branchless code..."
-    ./branch_benchmark_arm_optimized $pattern 1 | tee pattern_${pattern}_branchless.txt
-    
-    # Extract results for branch hints
-    time_hints=$(grep "Time:" pattern_${pattern}_hints.txt | awk '{print $2}')
-    ops_hints=$(grep "Operations per second:" pattern_${pattern}_hints.txt | awk '{print $4}')
-    
-    # Extract results for branchless
-    time_branchless=$(grep "Time:" pattern_${pattern}_branchless.txt | awk '{print $2}')
-    ops_branchless=$(grep "Operations per second:" pattern_${pattern}_branchless.txt | awk '{print $4}')
-    
-    # Save to CSV
-    echo "$pattern,hints,$time_hints,$ops_hints" >> arm_optimized_results.csv
-    echo "$pattern,branchless,$time_branchless,$ops_branchless" >> arm_optimized_results.csv
-done
-
-echo "Benchmark complete. Results saved to arm_optimized_results.csv"
-
-# Compare with original benchmark
-if [ -f branch_results.csv ]; then
-    echo "Comparing with original benchmark..."
-    echo "pattern,original_time,optimized_time,improvement_percent" > comparison_results.csv
-    
-    for pattern in 0 1 2 3 4; do
-        orig_time=$(grep "^$pattern," branch_results.csv | cut -d, -f2)
-        
-        # Use the better of the two optimized approaches
-        hint_time=$(grep "^$pattern,hints" arm_optimized_results.csv | cut -d, -f3)
-        branchless_time=$(grep "^$pattern,branchless" arm_optimized_results.csv | cut -d, -f3)
-        
-        if (( $(echo "$hint_time < $branchless_time" | bc -l) )); then
-            opt_time=$hint_time
-            approach="hints"
-        else
-            opt_time=$branchless_time
-            approach="branchless"
-        fi
-        
-        improvement=$(echo "scale=2; ($orig_time - $opt_time) * 100 / $orig_time" | bc)
-        
-        echo "$pattern,$orig_time,$opt_time,$improvement" >> comparison_results.csv
-        echo "Pattern $pattern: Original: $orig_time s, Optimized ($approach): $opt_time s, Improvement: $improvement%"
-    done
+# Run the optimized benchmark (Arm only)
+if [ "$(uname -m)" = "aarch64" ]; then
+    ./run_arm_optimized_benchmark.sh
 fi
 ```
 
-Make the script executable:
+This will run both the branch hint and branchless versions of the benchmark and compare them to the original version.
 
-```bash
-chmod +x run_arm_optimized_benchmark.sh
-```
-
-### 4. Run the Optimized Benchmark
+### 4. Compare Results
 
 Execute the optimized benchmark script on the Arm VM:
 
@@ -501,60 +188,6 @@ Arm architectures offer several optimization techniques to improve branch predic
 
 Create a file named `branch_hints.c`:
 
-```c
-#include <stdio.h>
-#include <stdlib.h>
-#include <time.h>
-#include <stdint.h>
-
-#define ARRAY_SIZE 10000000
-#define ITERATIONS 100
-
-double get_time() {
-    struct timespec ts;
-    clock_gettime(CLOCK_MONOTONIC, &ts);
-    return ts.tv_sec + ts.tv_nsec / 1.0e9;
-}
-
-uint64_t test_with_hints(int *array) {
-    uint64_t sum = 0;
-    
-    for (int iter = 0; iter < ITERATIONS; iter++) {
-        for (int i = 0; i < ARRAY_SIZE; i++) {
-            // Use branch hint for likely taken branches
-            if (__builtin_expect(array[i], 1)) {
-                sum += i;
-            } else {
-                sum -= i;
-            }
-        }
-    }
-    
-    return sum;
-}
-
-int main() {
-    int *array = malloc(ARRAY_SIZE * sizeof(int));
-    if (!array) return 1;
-    
-    // Initialize with mostly taken pattern (90%)
-    for (int i = 0; i < ARRAY_SIZE; i++) {
-        array[i] = (rand() % 100) < 90 ? 1 : 0;
-    }
-    
-    // Benchmark
-    double start = get_time();
-    volatile uint64_t result = test_with_hints(array);
-    double end = get_time();
-    
-    printf("Time: %.6f seconds\n", end - start);
-    printf("Result: %lu\n", result);
-    
-    free(array);
-    return 0;
-}
-```
-
 Compile with Arm-specific optimizations:
 
 ```bash
@@ -564,59 +197,6 @@ gcc -O3 -march=native branch_hints.c -o branch_hints
 ### 2. Branchless Code with Conditional Select
 
 Create a file named `branchless.c`:
-
-```c
-#include <stdio.h>
-#include <stdlib.h>
-#include <time.h>
-#include <stdint.h>
-
-#define ARRAY_SIZE 10000000
-#define ITERATIONS 100
-
-double get_time() {
-    struct timespec ts;
-    clock_gettime(CLOCK_MONOTONIC, &ts);
-    return ts.tv_sec + ts.tv_nsec / 1.0e9;
-}
-
-uint64_t test_branchless(int *array) {
-    uint64_t sum = 0;
-    
-    for (int iter = 0; iter < ITERATIONS; iter++) {
-        for (int i = 0; i < ARRAY_SIZE; i++) {
-            // Branchless version using bitwise operations
-            int64_t value = (int64_t)i;
-            int64_t neg_value = -value;
-            int64_t mask = -(int64_t)array[i];  // 0 or -1
-            sum += ((value & mask) | (neg_value & ~mask));
-        }
-    }
-    
-    return sum;
-}
-
-int main() {
-    int *array = malloc(ARRAY_SIZE * sizeof(int));
-    if (!array) return 1;
-    
-    // Initialize with random pattern
-    for (int i = 0; i < ARRAY_SIZE; i++) {
-        array[i] = rand() % 2;
-    }
-    
-    // Benchmark
-    double start = get_time();
-    volatile uint64_t result = test_branchless(array);
-    double end = get_time();
-    
-    printf("Time: %.6f seconds\n", end - start);
-    printf("Result: %lu\n", result);
-    
-    free(array);
-    return 0;
-}
-```
 
 Compile with:
 

@@ -1,8 +1,6 @@
 ---
 title: CPU Utilization
 weight: 100
-
-### FIXED, DO NOT MODIFY
 layout: learningpathall
 ---
 
@@ -16,59 +14,36 @@ For more detailed information about CPU utilization, you can refer to:
 - [Linux Performance Analysis with mpstat](https://www.brendangregg.com/blog/2014-06-26/linux-load-averages.html)
 - [Understanding CPU Load](https://scoutapm.com/blog/understanding-load-averages)
 
-## Benchmarking Exercise: Comparing CPU Utilization
-
-In this exercise, we'll use common Linux tools to measure and compare CPU utilization across Intel/AMD and Arm systems under identical workloads.
+## Benchmarking Exercise
 
 ### Prerequisites
 
-Ensure you have two Ubuntu VMs:
-- One running on Intel/AMD (x86_64)
-- One running on Arm (aarch64)
+Ensure you have:
+- Completed the repository setup from the previous chapter
+- Two Ubuntu systems with the bench_guide repository cloned
 
-Both should have similar specifications (vCPU count, memory) for fair comparison.
+### Step 1: Navigate to Directory
 
-### Step 1: Download and Run Setup Script
-
-Download and run the setup script to install required tools:
+Navigate to the benchmark directory:
 
 ```bash
-curl -O https://raw.githubusercontent.com/geremyCohen/bench_guide/main/cpu_utilization/setup.sh
-chmod +x setup.sh
+cd bench_guide/cpu_utilization
+```
+
+### Step 2: Install Dependencies
+
+Run the setup script:
+
+```bash
 ./setup.sh
 ```
 
-This script installs the necessary packages (sysstat, stress-ng) on both VMs.
-
-### Step 2: Download Benchmark Script
-
-Download the benchmark script from the repository:
-
-```bash
-curl -O https://raw.githubusercontent.com/geremyCohen/bench_guide/main/cpu_utilization/cpu_benchmark.sh
-chmod +x cpu_benchmark.sh
-```
-
-Alternatively, you can create the script manually:
-
-```bash
-# View the script content
-curl https://raw.githubusercontent.com/geremyCohen/bench_guide/main/cpu_utilization/cpu_benchmark.sh
-```
-
-The script performs the following tasks:
-1. Detects the system architecture (x86_64 or aarch64)
-2. Displays system information (CPU model, core count)
-3. Runs stress tests with different CPU loads (full, half, and single core)
-4. Measures and reports CPU utilization for each test
-
-
 ### Step 3: Run the Benchmark
 
-Execute the benchmark script on both VMs:
+Execute the benchmark:
 
 ```bash
-./cpu_benchmark.sh | tee cpu_benchmark_results.txt
+./benchmark.sh
 ```
 
 ### Step 4: Analyze the Results

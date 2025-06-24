@@ -1,8 +1,6 @@
 ---
 title: Data Cache Zero by VA (DC ZVA)
 weight: 2371
-
-### FIXED, DO NOT MODIFY
 layout: learningpathall
 ---
 
@@ -12,11 +10,39 @@ The Data Cache Zero by Virtual Address (DC ZVA) instruction is a powerful optimi
 
 When comparing Intel/AMD (x86) versus Arm architectures, DC ZVA provides a unique advantage for Arm in terms of memory zeroing efficiency. While x86 has optimized instructions like `REP STOSB`, DC ZVA operates directly at the cache line level, providing better performance and reduced memory traffic.
 
-## Benchmarking Exercise: Measuring DC ZVA Performance
-
-In this exercise, we'll measure the performance impact of using DC ZVA for memory zeroing operations on Arm Neoverse processors.
+## Benchmarking Exercise
 
 ### Prerequisites
+
+Ensure you have:
+- Completed the repository setup from the previous chapter
+- ARM (aarch64) system with the bench_guide repository cloned
+
+### Step 1: Navigate to Directory
+
+Navigate to the benchmark directory:
+
+```bash
+cd bench_guide/arm_cache_management
+```
+
+### Step 2: Install Dependencies
+
+Run the setup script:
+
+```bash
+./setup.sh
+```
+
+### Step 3: Run the Benchmark
+
+Execute the benchmark:
+
+```bash
+./benchmark.sh
+```
+
+### Step 4: Analyze the Results
 
 Ensure you have an Arm VM with:
 - Arm (aarch64) with Neoverse processors
@@ -29,162 +55,6 @@ Run the following commands:
 ```bash
 sudo apt update
 sudo apt install -y build-essential gcc
-```
-
-### Step 2: Create DC ZVA Benchmark
-
-Create a file named `dc_zva_benchmark.c` with the following content:
-
-```c
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <time.h>
-#include <stdint.h>
-
-#define BUFFER_SIZE (100 * 1024 * 1024)  // 100MB
-#define ITERATIONS 5
-
-// Function to measure time
-double get_time() {
-    struct timespec ts;
-    clock_gettime(CLOCK_MONOTONIC, &ts);
-    return ts.tv_sec + ts.tv_nsec / 1.0e9;
-}
-
-// Standard memset implementation
-void standard_zero(void *buffer, size_t size) {
-    memset(buffer, 0, size);
-}
-
-// DC ZVA implementation
-void dc_zva_zero(void *buffer, size_t size) {
-#ifdef __aarch64__
-    // Get DC ZVA block size
-    uint64_t zva_size;
-    __asm__ volatile("mrs %0, dczid_el0" : "=r" (zva_size));
-    zva_size = 4 << (zva_size & 0xf);
-    
-    // Check if DC ZVA is disabled
-    if (zva_size == 0) {
-        memset(buffer, 0, size);
-        return;
-    }
-    
-    // Align buffer to cache line boundary
-    uintptr_t start = (uintptr_t)buffer;
-    uintptr_t end = start + size;
-    uintptr_t aligned_start = (start + zva_size - 1) & ~(zva_size - 1);
-    
-    // Zero initial unaligned portion
-    if (aligned_start > start) {
-        memset((void*)start, 0, aligned_start - start);
-    }
-    
-    // Zero aligned portion using DC ZVA
-    for (uintptr_t addr = aligned_start; addr < end; addr += zva_size) {
-        __asm__ volatile("dc zva, %0" : : "r" (addr));
-    }
-    
-    // Zero final unaligned portion
-    uintptr_t aligned_end = end & ~(zva_size - 1);
-    if (end > aligned_end) {
-        memset((void*)aligned_end, 0, end - aligned_end);
-    }
-#else
-    // Fallback for non-Arm architectures
-    memset(buffer, 0, size);
-#endif
-}
-
-// Custom loop-based zeroing
-void loop_zero(void *buffer, size_t size) {
-    uint8_t *buf = (uint8_t*)buffer;
-    for (size_t i = 0; i < size; i++) {
-        buf[i] = 0;
-    }
-}
-
-int main() {
-    printf("CPU Architecture: %s\n", 
-        #ifdef __aarch64__
-        "aarch64"
-        #else
-        "other"
-        #endif
-    );
-    
-    // Get DC ZVA block size
-#ifdef __aarch64__
-    uint64_t zva_size;
-    __asm__ volatile("mrs %0, dczid_el0" : "=r" (zva_size));
-    zva_size = 4 << (zva_size & 0xf);
-    printf("DC ZVA block size: %lu bytes\n", zva_size);
-#endif
-    
-    // Allocate buffer
-    void *buffer = malloc(BUFFER_SIZE);
-    if (!buffer) {
-        perror("malloc");
-        return 1;
-    }
-    
-    // Initialize buffer with non-zero data
-    memset(buffer, 0xFF, BUFFER_SIZE);
-    
-    // Benchmark standard memset
-    double start = get_time();
-    for (int i = 0; i < ITERATIONS; i++) {
-        standard_zero(buffer, BUFFER_SIZE);
-    }
-    double end = get_time();
-    double standard_time = end - start;
-    
-    printf("Standard memset time: %.6f seconds\n", standard_time);
-    printf("Standard memset bandwidth: %.2f GB/s\n", 
-           (BUFFER_SIZE * ITERATIONS) / (standard_time * 1024 * 1024 * 1024));
-    
-    // Re-initialize buffer
-    memset(buffer, 0xFF, BUFFER_SIZE);
-    
-    // Benchmark DC ZVA
-    start = get_time();
-    for (int i = 0; i < ITERATIONS; i++) {
-        dc_zva_zero(buffer, BUFFER_SIZE);
-    }
-    end = get_time();
-    double dc_zva_time = end - start;
-    
-    printf("DC ZVA time: %.6f seconds\n", dc_zva_time);
-    printf("DC ZVA bandwidth: %.2f GB/s\n", 
-           (BUFFER_SIZE * ITERATIONS) / (dc_zva_time * 1024 * 1024 * 1024));
-    printf("DC ZVA speedup: %.2fx\n", standard_time / dc_zva_time);
-    
-    // Re-initialize buffer
-    memset(buffer, 0xFF, BUFFER_SIZE);
-    
-    // Benchmark loop-based zeroing
-    start = get_time();
-    for (int i = 0; i < ITERATIONS; i++) {
-        loop_zero(buffer, BUFFER_SIZE);
-    }
-    end = get_time();
-    double loop_time = end - start;
-    
-    printf("Loop-based zeroing time: %.6f seconds\n", loop_time);
-    printf("Loop-based zeroing bandwidth: %.2f GB/s\n", 
-           (BUFFER_SIZE * ITERATIONS) / (loop_time * 1024 * 1024 * 1024));
-    
-    free(buffer);
-    return 0;
-}
-```
-
-Compile with:
-
-```bash
-# See: ../2400_compiler_optimizations.md#cpu-specific-flags
-gcc -O3 -march=native dc_zva_benchmark.c -o dc_zva_benchmark
 ```
 
 ### Step 3: Run the Benchmark
@@ -200,79 +70,6 @@ Execute the benchmark:
 ### 1. Optimized Memory Zeroing Function
 
 Create a file named `optimized_memzero.c`:
-
-```c
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <stdint.h>
-
-// Optimized memory zeroing using DC ZVA when available
-void optimized_memzero(void *buffer, size_t size) {
-#ifdef __aarch64__
-    // Get DC ZVA block size
-    uint64_t zva_size;
-    __asm__ volatile("mrs %0, dczid_el0" : "=r" (zva_size));
-    zva_size = 4 << (zva_size & 0xf);
-    
-    // Check if DC ZVA is disabled
-    if (zva_size == 0) {
-        memset(buffer, 0, size);
-        return;
-    }
-    
-    // Align buffer to cache line boundary
-    uintptr_t start = (uintptr_t)buffer;
-    uintptr_t end = start + size;
-    uintptr_t aligned_start = (start + zva_size - 1) & ~(zva_size - 1);
-    
-    // Zero initial unaligned portion
-    if (aligned_start > start) {
-        memset((void*)start, 0, aligned_start - start);
-    }
-    
-    // Zero aligned portion using DC ZVA
-    for (uintptr_t addr = aligned_start; addr < end; addr += zva_size) {
-        __asm__ volatile("dc zva, %0" : : "r" (addr));
-    }
-    
-    // Zero final unaligned portion
-    uintptr_t aligned_end = end & ~(zva_size - 1);
-    if (end > aligned_end) {
-        memset((void*)aligned_end, 0, end - aligned_end);
-    }
-#else
-    // Fallback for non-Arm architectures
-    memset(buffer, 0, size);
-#endif
-}
-
-int main() {
-    // Example usage
-    void *buffer = malloc(1024 * 1024);  // 1MB buffer
-    if (!buffer) {
-        perror("malloc");
-        return 1;
-    }
-    
-    // Zero the buffer
-    optimized_memzero(buffer, 1024 * 1024);
-    
-    // Verify zeroing
-    unsigned char *bytes = (unsigned char*)buffer;
-    for (int i = 0; i < 1024; i++) {
-        if (bytes[i] != 0) {
-            printf("Error: Buffer not zeroed at offset %d\n", i);
-            break;
-        }
-    }
-    
-    printf("Buffer successfully zeroed\n");
-    free(buffer);
-    
-    return 0;
-}
-```
 
 Compile with:
 
@@ -343,31 +140,6 @@ To optimize DC ZVA performance on Neoverse systems, apply these OS-level tweaks:
 
 Check if DC ZVA is enabled and get the block size:
 
-```bash
-# Create a simple program to check DC ZVA
-cat > check_dczva.c << EOF
-#include <stdio.h>
-#include <stdint.h>
-
-int main() {
-    uint64_t dczid;
-    __asm__ volatile("mrs %0, dczid_el0" : "=r" (dczid));
-    
-    if (dczid & 0x10) {
-        printf("DC ZVA is disabled\n");
-    } else {
-        uint64_t block_size = 4 << (dczid & 0xf);
-        printf("DC ZVA is enabled, block size: %lu bytes\n", block_size);
-    }
-    return 0;
-}
-EOF
-
-# Compile and run
-gcc -o check_dczva check_dczva.c
-./check_dczva
-```
-
 ### 2. Enable DC ZVA in the Kernel
 
 For systems where DC ZVA might be disabled, add these kernel parameters:
@@ -408,162 +180,13 @@ echo always > /sys/kernel/mm/transparent_hugepage/defrag
 
 Use NEON/SVE to accelerate DC ZVA for very large regions:
 
-```c
-#include <arm_neon.h>
-
-void fast_zero_large_memory(void *buffer, size_t size) {
-    // Get DC ZVA block size
-    uint64_t zva_size;
-    __asm__ volatile("mrs %0, dczid_el0" : "=r" (zva_size));
-    zva_size = 4 << (zva_size & 0xf);
-    
-    // Align buffer to cache line boundary
-    uintptr_t start = (uintptr_t)buffer;
-    uintptr_t end = start + size;
-    uintptr_t aligned_start = (start + zva_size - 1) & ~(zva_size - 1);
-    
-    // Zero initial unaligned portion with NEON
-    if (aligned_start > start) {
-        size_t prefix_size = aligned_start - start;
-        size_t vec_count = prefix_size / 16;
-        
-        uint8_t *ptr = (uint8_t*)start;
-        for (size_t i = 0; i < vec_count; i++) {
-            vst1q_u8(ptr + i * 16, vdupq_n_u8(0));
-        }
-        
-        // Handle remaining bytes
-        for (size_t i = vec_count * 16; i < prefix_size; i++) {
-            ptr[i] = 0;
-        }
-    }
-    
-    // Zero aligned portion using DC ZVA
-    for (uintptr_t addr = aligned_start; addr < end; addr += zva_size) {
-        __asm__ volatile("dc zva, %0" : : "r" (addr));
-    }
-    
-    // Zero final unaligned portion with NEON
-    uintptr_t aligned_end = end & ~(zva_size - 1);
-    if (end > aligned_end) {
-        size_t suffix_size = end - aligned_end;
-        size_t vec_count = suffix_size / 16;
-        
-        uint8_t *ptr = (uint8_t*)aligned_end;
-        for (size_t i = 0; i < vec_count; i++) {
-            vst1q_u8(ptr + i * 16, vdupq_n_u8(0));
-        }
-        
-        // Handle remaining bytes
-        for (size_t i = vec_count * 16; i < suffix_size; i++) {
-            ptr[i] = 0;
-        }
-    }
-}
-```
-
 ### 2. Multi-threaded DC ZVA for Very Large Buffers
 
 Parallelize DC ZVA operations for gigabyte-scale buffers:
 
-```c
-#include <pthread.h>
-
-typedef struct {
-    void *buffer;
-    size_t size;
-} thread_arg_t;
-
-void* thread_zero_memory(void* arg) {
-    thread_arg_t* thread_arg = (thread_arg_t*)arg;
-    
-    // Get DC ZVA block size
-    uint64_t zva_size;
-    __asm__ volatile("mrs %0, dczid_el0" : "=r" (zva_size));
-    zva_size = 4 << (zva_size & 0xf);
-    
-    // Zero memory using DC ZVA
-    uintptr_t start = (uintptr_t)thread_arg->buffer;
-    uintptr_t end = start + thread_arg->size;
-    
-    // Align to cache line boundary
-    uintptr_t aligned_start = (start + zva_size - 1) & ~(zva_size - 1);
-    
-    // Zero aligned portion
-    for (uintptr_t addr = aligned_start; addr < end; addr += zva_size) {
-        __asm__ volatile("dc zva, %0" : : "r" (addr));
-    }
-    
-    return NULL;
-}
-
-void parallel_zero_memory(void *buffer, size_t size, int num_threads) {
-    pthread_t threads[num_threads];
-    thread_arg_t args[num_threads];
-    
-    size_t chunk_size = size / num_threads;
-    
-    // Create threads
-    for (int i = 0; i < num_threads; i++) {
-        args[i].buffer = (uint8_t*)buffer + i * chunk_size;
-        args[i].size = (i == num_threads - 1) ? (size - i * chunk_size) : chunk_size;
-        
-        pthread_create(&threads[i], NULL, thread_zero_memory, &args[i]);
-    }
-    
-    // Wait for threads to complete
-    for (int i = 0; i < num_threads; i++) {
-        pthread_join(threads[i], NULL);
-    }
-}
-```
-
 ### 3. Custom Memory Allocator with DC ZVA
 
 Implement a custom allocator that efficiently uses DC ZVA for zeroing:
-
-```c
-#include <stdlib.h>
-#include <stdint.h>
-
-void* calloc_with_dczva(size_t nmemb, size_t size) {
-    size_t total_size = nmemb * size;
-    
-    // Allocate memory
-    void* ptr = malloc(total_size);
-    if (!ptr) {
-        return NULL;
-    }
-    
-    // Get DC ZVA block size
-    uint64_t zva_size;
-    __asm__ volatile("mrs %0, dczid_el0" : "=r" (zva_size));
-    zva_size = 4 << (zva_size & 0xf);
-    
-    // Zero memory using DC ZVA
-    uintptr_t start = (uintptr_t)ptr;
-    uintptr_t end = start + total_size;
-    uintptr_t aligned_start = (start + zva_size - 1) & ~(zva_size - 1);
-    
-    // Zero initial unaligned portion
-    if (aligned_start > start) {
-        memset((void*)start, 0, aligned_start - start);
-    }
-    
-    // Zero aligned portion using DC ZVA
-    for (uintptr_t addr = aligned_start; addr < end; addr += zva_size) {
-        __asm__ volatile("dc zva, %0" : : "r" (addr));
-    }
-    
-    // Zero final unaligned portion
-    uintptr_t aligned_end = end & ~(zva_size - 1);
-    if (end > aligned_end) {
-        memset((void*)aligned_end, 0, end - aligned_end);
-    }
-    
-    return ptr;
-}
-```
 
 These tweaks can provide an additional 20-40% performance improvement for memory zeroing operations on Neoverse processors, especially for large memory regions.
 

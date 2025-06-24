@@ -1,8 +1,6 @@
 ---
 title: SVE2 Vector Performance for Neoverse
 weight: 1650
-
-### FIXED, DO NOT MODIFY
 layout: learningpathall
 ---
 
@@ -36,71 +34,8 @@ sudo apt install -y build-essential gcc
 Create a file named `detect_features.c` with the following content:
 
 ```c
-#include <stdio.h>
-#include <stdlib.h>
-#include <unistd.h>
-#include <sys/auxv.h>
-
-// Define constants if not available in headers
-#ifndef HWCAP_SVE
-#define HWCAP_SVE (1 << 22)
-#endif
-
-#ifndef HWCAP2_SVE2
-#define HWCAP2_SVE2 (1 << 1)
-#endif
-
-int main() {
-    printf("CPU Architecture: aarch64\n");
-    
-    // Get CPU information
-    FILE *fp = popen("lscpu | grep 'Model name'", "r");
-    if (fp) {
-        char buffer[256];
-        while (fgets(buffer, sizeof(buffer), fp)) {
-            printf("%s", buffer);
-        }
-        pclose(fp);
-    }
-    
-    // Check for SVE/SVE2 support
-    unsigned long hwcap = getauxval(AT_HWCAP);
-    unsigned long hwcap2 = getauxval(AT_HWCAP2);
-    
-    int sve_supported = (hwcap & HWCAP_SVE) != 0;
-    int sve2_supported = (hwcap2 & HWCAP2_SVE2) != 0;
-    
-    printf("SVE support: %s\n", sve_supported ? "Yes" : "No");
-    printf("SVE2 support: %s\n", sve2_supported ? "Yes" : "No");
-    
-    // Detect if running on Neoverse
-    fp = popen("lscpu | grep -i neoverse", "r");
-    if (fp) {
-        char buffer[256];
-        int is_neoverse = 0;
-        while (fgets(buffer, sizeof(buffer), fp)) {
-            is_neoverse = 1;
-            printf("%s", buffer);
-        }
-        pclose(fp);
-        
-        if (!is_neoverse) {
-            printf("Neoverse: Not detected\n");
-        }
-    }
-    
-    // If SVE is supported, get vector length
-    if (sve_supported) {
-        #ifdef __ARM_FEATURE_SVE
-        int vector_bits = svcntb() * 8;
-        printf("SVE vector length: %d bits\n", vector_bits);
-        #else
-        printf("SVE vector length: Unknown (compiler support missing)\n");
-        #endif
-    }
-    
-    return 0;
-}
+// Code moved to external repository
+// See benchmark files in bench_guide repository
 ```
 
 Compile and run:
@@ -115,142 +50,8 @@ gcc -march=armv8.2-a detect_features.c -o detect_features
 Create a file named `neoverse_vector_benchmark.c` with the following content:
 
 ```c
-#include <stdio.h>
-#include <stdlib.h>
-#include <time.h>
-#include <stdint.h>
-
-// Include SVE header if available
-#if defined(__ARM_FEATURE_SVE)
-#include <arm_sve.h>
-#endif
-
-// Include NEON header for fallback
-#include <arm_neon.h>
-
-#define ARRAY_SIZE 10000000
-#define ITERATIONS 10
-
-// Function to measure time
-double get_time() {
-    struct timespec ts;
-    clock_gettime(CLOCK_MONOTONIC, &ts);
-    return ts.tv_sec + ts.tv_nsec / 1.0e9;
-}
-
-// Standard vector addition
-void vector_add_standard(float *a, float *b, float *c, size_t n) {
-    for (size_t i = 0; i < n; i++) {
-        c[i] = a[i] + b[i];
-    }
-}
-
-// NEON vector addition (for Neoverse N1)
-void vector_add_neon(float *a, float *b, float *c, size_t n) {
-    size_t i = 0;
-    
-    // Process 4 elements at a time using NEON
-    for (; i <= n - 4; i += 4) {
-        float32x4_t va = vld1q_f32(&a[i]);
-        float32x4_t vb = vld1q_f32(&b[i]);
-        float32x4_t vc = vaddq_f32(va, vb);
-        vst1q_f32(&c[i], vc);
-    }
-    
-    // Process remaining elements
-    for (; i < n; i++) {
-        c[i] = a[i] + b[i];
-    }
-}
-
-// SVE vector addition (for Neoverse V1/N2)
-#if defined(__ARM_FEATURE_SVE)
-void vector_add_sve(float *a, float *b, float *c, size_t n) {
-    size_t i = 0;
-    
-    // Process elements using SVE
-    for (; i < n; i += svcntw()) {
-        svbool_t pg = svwhilelt_b32(i, n);
-        svfloat32_t va = svld1(pg, &a[i]);
-        svfloat32_t vb = svld1(pg, &b[i]);
-        svfloat32_t vc = svadd_f32_z(pg, va, vb);
-        svst1(pg, &c[i], vc);
-    }
-}
-#endif
-
-int main() {
-    // Check for SVE support
-    #if defined(__ARM_FEATURE_SVE)
-    int sve_supported = 1;
-    int vector_bits = svcntb() * 8;
-    printf("SVE vector length: %d bits\n", vector_bits);
-    #else
-    int sve_supported = 0;
-    printf("SVE not supported by compiler\n");
-    #endif
-    
-    // Allocate arrays
-    float *a = aligned_alloc(64, ARRAY_SIZE * sizeof(float));
-    float *b = aligned_alloc(64, ARRAY_SIZE * sizeof(float));
-    float *c1 = aligned_alloc(64, ARRAY_SIZE * sizeof(float));
-    float *c2 = aligned_alloc(64, ARRAY_SIZE * sizeof(float));
-    
-    if (!a || !b || !c1 || !c2) {
-        perror("Memory allocation failed");
-        return 1;
-    }
-    
-    // Initialize arrays
-    for (int i = 0; i < ARRAY_SIZE; i++) {
-        a[i] = (float)i / 1000.0f;
-        b[i] = (float)i / 2000.0f;
-    }
-    
-    // Benchmark standard vector addition
-    double start = get_time();
-    for (int i = 0; i < ITERATIONS; i++) {
-        vector_add_standard(a, b, c1, ARRAY_SIZE);
-    }
-    double end = get_time();
-    double standard_time = end - start;
-    
-    printf("Standard vector add time: %.6f seconds\n", standard_time);
-    
-    // Benchmark NEON vector addition
-    start = get_time();
-    for (int i = 0; i < ITERATIONS; i++) {
-        vector_add_neon(a, b, c2, ARRAY_SIZE);
-    }
-    end = get_time();
-    double neon_time = end - start;
-    
-    printf("NEON vector add time: %.6f seconds\n", neon_time);
-    printf("NEON speedup: %.2fx\n", standard_time / neon_time);
-    
-    // Benchmark SVE vector addition if supported
-    #if defined(__ARM_FEATURE_SVE)
-    if (sve_supported) {
-        start = get_time();
-        for (int i = 0; i < ITERATIONS; i++) {
-            vector_add_sve(a, b, c2, ARRAY_SIZE);
-        }
-        end = get_time();
-        double sve_time = end - start;
-        
-        printf("SVE vector add time: %.6f seconds\n", sve_time);
-        printf("SVE speedup vs standard: %.2fx\n", standard_time / sve_time);
-        printf("SVE speedup vs NEON: %.2fx\n", neon_time / sve_time);
-    }
-    #endif
-    
-    free(a);
-    free(b);
-    free(c1);
-    free(c2);
-    
-    return 0;
-}
+// Code moved to external repository
+// See benchmark files in bench_guide repository
 ```
 
 ### Step 4: Create Compilation Script for Different Neoverse Targets
@@ -258,41 +59,8 @@ int main() {
 Create a file named `compile_neoverse.sh` with the following content:
 
 ```bash
-#!/bin/bash
-
-echo "Compiling for Neoverse targets..."
-
-# Detect CPU features
-SVE_SUPPORT=$(./detect_features | grep "SVE support" | grep -c "Yes")
-SVE2_SUPPORT=$(./detect_features | grep "SVE2 support" | grep -c "Yes")
-NEOVERSE_MODEL=$(lscpu | grep -i neoverse | head -1)
-
-echo "Detected: $NEOVERSE_MODEL"
-echo "SVE support: $SVE_SUPPORT"
-echo "SVE2 support: $SVE2_SUPPORT"
-
-# Compile for appropriate Neoverse target
-if [[ $NEOVERSE_MODEL == *"N1"* ]]; then
-    echo "Compiling for Neoverse N1..."
-    gcc -O3 -march=armv8.2-a+crypto+fp16+rcpc+dotprod neoverse_vector_benchmark.c -o neoverse_vector_benchmark
-elif [[ $NEOVERSE_MODEL == *"N2"* ]]; then
-    echo "Compiling for Neoverse N2..."
-    gcc -O3 -march=armv8.5-a+sve2 neoverse_vector_benchmark.c -o neoverse_vector_benchmark
-elif [[ $NEOVERSE_MODEL == *"V1"* ]]; then
-    echo "Compiling for Neoverse V1..."
-    gcc -O3 -march=armv8.4-a+sve neoverse_vector_benchmark.c -o neoverse_vector_benchmark
-elif [[ $SVE2_SUPPORT -eq 1 ]]; then
-    echo "Compiling with SVE2 support..."
-    gcc -O3 -march=armv8.5-a+sve2 neoverse_vector_benchmark.c -o neoverse_vector_benchmark
-elif [[ $SVE_SUPPORT -eq 1 ]]; then
-    echo "Compiling with SVE support..."
-    gcc -O3 -march=armv8.2-a+sve neoverse_vector_benchmark.c -o neoverse_vector_benchmark
-else
-    echo "Compiling with NEON only (generic Neoverse)..."
-    gcc -O3 -march=armv8.2-a+crypto+fp16+rcpc+dotprod neoverse_vector_benchmark.c -o neoverse_vector_benchmark
-fi
-
-echo "Compilation complete."
+// Code moved to external repository
+// See benchmark files in bench_guide repository
 ```
 
 Make the script executable:
@@ -314,83 +82,21 @@ Execute the compilation and benchmark:
 
 1. **Neoverse N1 Optimizations (NEON-based)**:
    ```c
-   // Optimize for 128-bit NEON vectors
-   void optimize_for_n1(float *data, int size) {
-       // Use NEON with careful loop unrolling (4x)
-       for (int i = 0; i < size; i += 16) {
-           float32x4_t v1 = vld1q_f32(&data[i]);
-           float32x4_t v2 = vld1q_f32(&data[i+4]);
-           float32x4_t v3 = vld1q_f32(&data[i+8]);
-           float32x4_t v4 = vld1q_f32(&data[i+12]);
-           
-           // Process vectors...
-           
-           vst1q_f32(&data[i], v1);
-           vst1q_f32(&data[i+4], v2);
-           vst1q_f32(&data[i+8], v3);
-           vst1q_f32(&data[i+12], v4);
-       }
-   }
-   ```
+// Code moved to external repository
+// See benchmark files in bench_guide repository
+```
 
 2. **Neoverse V1/N2 Optimizations (SVE/SVE2)**:
-   ```c
-   // Optimize for scalable SVE vectors (typically 256-bit on Neoverse)
-   void optimize_for_v1_n2(float *data, int size) {
-       for (int i = 0; i < size; i += svcntw()) {
-           svbool_t pg = svwhilelt_b32(i, size);
-           svfloat32_t v = svld1(pg, &data[i]);
-           
-           // Process vector...
-           
-           svst1(pg, &data[i], v);
-       }
-   }
-   ```
+   
 
 3. **Neoverse-specific Compiler Flags**:
-   ```bash
-   # Neoverse N1
-   gcc -O3 -march=armv8.2-a+crypto+fp16+rcpc+dotprod
    
-   # Neoverse V1
-   gcc -O3 -march=armv8.4-a+sve
-   
-   # Neoverse N2
-   gcc -O3 -march=armv8.5-a+sve2
-   ```
 
 4. **Runtime Feature Detection**:
-   ```c
-   #include <sys/auxv.h>
    
-   void select_optimal_implementation() {
-       unsigned long hwcap = getauxval(AT_HWCAP);
-       unsigned long hwcap2 = getauxval(AT_HWCAP2);
-       
-       if (hwcap2 & HWCAP2_SVE2) {
-           // Use SVE2 implementation (Neoverse N2)
-       } else if (hwcap & HWCAP_SVE) {
-           // Use SVE implementation (Neoverse V1)
-       } else {
-           // Use NEON implementation (Neoverse N1)
-       }
-   }
-   ```
 
 5. **Vector-Length Agnostic Programming**:
-   ```c
-   // Works efficiently regardless of SVE vector length
-   void vector_length_agnostic(float *a, float *b, float *c, int size) {
-       for (int i = 0; i < size; i += svcntw()) {
-           svbool_t pg = svwhilelt_b32(i, size);
-           svfloat32_t va = svld1(pg, &a[i]);
-           svfloat32_t vb = svld1(pg, &b[i]);
-           svfloat32_t vc = svadd_f32_z(pg, va, vb);
-           svst1(pg, &c[i], vc);
-       }
-   }
-   ```
+   
 
 These optimizations ensure your code runs efficiently across the entire Neoverse family, from N1 (NEON) to V1/N2 (SVE/SVE2), making it ideal for cloud computing environments.
 
@@ -464,50 +170,8 @@ done
 Unroll loops to better utilize SVE/SVE2 instructions:
 
 ```c
-// Original loop
-for (int i = 0; i < size; i += svcntw()) {
-    svbool_t pg = svwhilelt_b32(i, size);
-    svfloat32_t va = svld1(pg, &a[i]);
-    svfloat32_t vb = svld1(pg, &b[i]);
-    svfloat32_t vc = svadd_f32_z(pg, va, vb);
-    svst1(pg, &c[i], vc);
-}
-
-// Unrolled loop (4x)
-for (int i = 0; i < size; i += svcntw() * 4) {
-    // First iteration
-    svbool_t pg1 = svwhilelt_b32(i, size);
-    svfloat32_t va1 = svld1(pg1, &a[i]);
-    svfloat32_t vb1 = svld1(pg1, &b[i]);
-    svfloat32_t vc1 = svadd_f32_z(pg1, va1, vb1);
-    
-    // Second iteration
-    int i2 = i + svcntw();
-    svbool_t pg2 = svwhilelt_b32(i2, size);
-    svfloat32_t va2 = svld1(pg2, &a[i2]);
-    svfloat32_t vb2 = svld1(pg2, &b[i2]);
-    svfloat32_t vc2 = svadd_f32_z(pg2, va2, vb2);
-    
-    // Third iteration
-    int i3 = i2 + svcntw();
-    svbool_t pg3 = svwhilelt_b32(i3, size);
-    svfloat32_t va3 = svld1(pg3, &a[i3]);
-    svfloat32_t vb3 = svld1(pg3, &b[i3]);
-    svfloat32_t vc3 = svadd_f32_z(pg3, va3, vb3);
-    
-    // Fourth iteration
-    int i4 = i3 + svcntw();
-    svbool_t pg4 = svwhilelt_b32(i4, size);
-    svfloat32_t va4 = svld1(pg4, &a[i4]);
-    svfloat32_t vb4 = svld1(pg4, &b[i4]);
-    svfloat32_t vc4 = svadd_f32_z(pg4, va4, vb4);
-    
-    // Store results
-    svst1(pg1, &c[i], vc1);
-    svst1(pg2, &c[i2], vc2);
-    svst1(pg3, &c[i3], vc3);
-    svst1(pg4, &c[i4], vc4);
-}
+// Code moved to external repository
+// See benchmark files in bench_guide repository
 ```
 
 ### 2. Memory Alignment for SVE
@@ -527,18 +191,6 @@ posix_memalign((void**)&a, 64, size * sizeof(float));
 
 Add prefetch hints to improve memory access patterns:
 
-```c
-for (int i = 0; i < size; i += svcntw()) {
-    // Prefetch data for future iterations
-    svprfw(svptrue_b32(), &a[i + svcntw() * 8], SV_PLDL1KEEP);
-    
-    // Current iteration processing
-    svbool_t pg = svwhilelt_b32(i, size);
-    svfloat32_t va = svld1(pg, &a[i]);
-    // ... rest of processing
-}
-```
-
 These tweaks can provide an additional 10-30% performance improvement for SVE/SVE2 workloads on Neoverse processors.
 
 ## Further Reading
@@ -552,20 +204,6 @@ These tweaks can provide an additional 10-30% performance improvement for SVE/SV
 ## Compiler Optimizations for SVE/SVE2
 
 To maximize the performance of SVE and SVE2 code on Neoverse processors, use these compiler optimizations:
-
-```bash
-# For Neoverse V1 (SVE)
-# See: ../2400_compiler_optimizations.md#cpu-specific-flags
-gcc -O3 -mcpu=neoverse-v1 -ffast-math -ftree-vectorize sve_code.c -o sve_optimized
-
-# For Neoverse N2 (SVE2)
-# See: ../2400_compiler_optimizations.md#cpu-specific-flags
-gcc -O3 -mcpu=neoverse-n2 -ffast-math -ftree-vectorize sve2_code.c -o sve2_optimized
-
-# For portable code with runtime detection
-# See: ../2400_compiler_optimizations.md#link-time-optimization
-gcc -O3 -march=armv8.2-a -ffast-math -ftree-vectorize -flto vector_code.c -o vector_optimized
-```
 
 ### Optimization Trade-offs
 

@@ -1,8 +1,6 @@
 ---
 title: Compiler Optimizations for Neoverse
 weight: 2400
-
-### FIXED, DO NOT MODIFY
 layout: learningpathall
 ---
 
@@ -15,11 +13,39 @@ For more detailed information about compiler optimizations for Neoverse, you can
 - [GCC Optimization Options](https://gcc.gnu.org/onlinedocs/gcc/Optimize-Options.html)
 - [LLVM/Clang Optimization Options](https://clang.llvm.org/docs/CommandGuide/clang.html#code-generation-options)
 
-## Benchmarking Exercise: Measuring Compiler Optimization Impact
-
-In this exercise, we'll measure the performance impact of different compiler optimization levels and techniques on Arm Neoverse processors.
+## Benchmarking Exercise
 
 ### Prerequisites
+
+Ensure you have:
+- Completed the repository setup from the previous chapter
+- ARM (aarch64) system with the bench_guide repository cloned
+
+### Step 1: Navigate to Directory
+
+Navigate to the benchmark directory:
+
+```bash
+cd bench_guide/compiler_optimizations
+```
+
+### Step 2: Install Dependencies
+
+Run the setup script:
+
+```bash
+./setup.sh
+```
+
+### Step 3: Run the Benchmark
+
+Execute the benchmark:
+
+```bash
+./benchmark.sh
+```
+
+### Step 4: Analyze the Results
 
 Ensure you have an Arm VM with:
 - Arm (aarch64) with Neoverse processors
@@ -37,205 +63,6 @@ sudo apt install -y build-essential gcc g++ clang lld time
 ### Step 2: Create a Test Program
 
 Create a file named `matrix_multiply.c` with the following content:
-
-```c
-#include <stdio.h>
-#include <stdlib.h>
-#include <time.h>
-#include <stdint.h>
-
-#define SIZE 1024
-
-// Function to measure time
-double get_time() {
-    struct timespec ts;
-    clock_gettime(CLOCK_MONOTONIC, &ts);
-    return ts.tv_sec + ts.tv_nsec / 1.0e9;
-}
-
-// Matrix multiplication
-void matrix_multiply(float *a, float *b, float *c, int size) {
-    for (int i = 0; i < size; i++) {
-        for (int j = 0; j < size; j++) {
-            float sum = 0.0f;
-            for (int k = 0; k < size; k++) {
-                sum += a[i * size + k] * b[k * size + j];
-            }
-            c[i * size + j] = sum;
-        }
-    }
-}
-
-int main() {
-    // Allocate matrices
-    float *a = (float *)malloc(SIZE * SIZE * sizeof(float));
-    float *b = (float *)malloc(SIZE * SIZE * sizeof(float));
-    float *c = (float *)malloc(SIZE * SIZE * sizeof(float));
-    
-    if (!a || !b || !c) {
-        perror("malloc");
-        return 1;
-    }
-    
-    // Initialize matrices with random values
-    srand(42);  // Fixed seed for reproducibility
-    for (int i = 0; i < SIZE * SIZE; i++) {
-        a[i] = (float)rand() / RAND_MAX;
-        b[i] = (float)rand() / RAND_MAX;
-    }
-    
-    // Warm up
-    matrix_multiply(a, b, c, 32);
-    
-    // Benchmark
-    printf("Starting matrix multiplication (%dx%d)...\n", SIZE, SIZE);
-    double start = get_time();
-    matrix_multiply(a, b, c, SIZE);
-    double end = get_time();
-    
-    printf("Execution time: %.6f seconds\n", end - start);
-    
-    // Verify result (simple checksum)
-    float checksum = 0.0f;
-    for (int i = 0; i < SIZE * SIZE; i += SIZE) {
-        checksum += c[i];
-    }
-    printf("Result checksum: %f\n", checksum);
-    
-    // Clean up
-    free(a);
-    free(b);
-    free(c);
-    
-    return 0;
-}
-```
-
-### Step 3: Create Compilation Script
-
-Create a file named `compile_benchmark.sh` with the following content:
-
-```bash
-#!/bin/bash
-
-# Detect CPU
-CPU_MODEL=$(lscpu | grep "Model name" | cut -d: -f2 | xargs)
-echo "CPU: $CPU_MODEL"
-
-# Detect if running on Neoverse
-NEOVERSE_MODEL="unknown"
-if lscpu | grep -q "Neoverse-N1"; then
-    NEOVERSE_MODEL="neoverse-n1"
-elif lscpu | grep -q "Neoverse-V1"; then
-    NEOVERSE_MODEL="neoverse-v1"
-elif lscpu | grep -q "Neoverse-N2"; then
-    NEOVERSE_MODEL="neoverse-n2"
-fi
-
-echo "Detected Neoverse model: $NEOVERSE_MODEL"
-
-# Compile with different optimization levels
-echo "Compiling with different optimization levels..."
-
-# No optimization
-gcc -O0 matrix_multiply.c -o matrix_multiply_O0
-
-# Basic optimization
-gcc -O1 matrix_multiply.c -o matrix_multiply_O1
-
-# Moderate optimization
-gcc -O2 matrix_multiply.c -o matrix_multiply_O2
-
-# Full optimization
-gcc -O3 matrix_multiply.c -o matrix_multiply_O3
-
-# Size optimization
-gcc -Os matrix_multiply.c -o matrix_multiply_Os
-
-# Neoverse-specific optimization
-if [ "$NEOVERSE_MODEL" != "unknown" ]; then
-    gcc -O3 -mcpu=$NEOVERSE_MODEL matrix_multiply.c -o matrix_multiply_neoverse
-else
-    gcc -O3 -march=armv8.2-a matrix_multiply.c -o matrix_multiply_neoverse
-fi
-
-# Link-Time Optimization
-gcc -O3 -flto matrix_multiply.c -o matrix_multiply_lto
-
-# Fast math
-gcc -O3 -ffast-math matrix_multiply.c -o matrix_multiply_fastmath
-
-# Combine optimizations
-gcc -O3 -mcpu=$NEOVERSE_MODEL -flto -ffast-math matrix_multiply.c -o matrix_multiply_all
-
-echo "Compilation complete."
-```
-
-Make the script executable:
-
-```bash
-chmod +x compile_benchmark.sh
-```
-
-### Step 4: Create Benchmark Script
-
-Create a file named `run_compiler_benchmark.sh` with the following content:
-
-```bash
-#!/bin/bash
-
-# Run benchmarks
-echo "Running benchmarks..."
-echo "Optimization,Time (seconds),Size (bytes)" > compiler_results.csv
-
-# Function to run benchmark
-run_benchmark() {
-    local binary=$1
-    local name=$2
-    
-    echo "Running $name optimization..."
-    
-    # Get binary size
-    local size=$(stat -c %s "$binary")
-    
-    # Run benchmark
-    output=$(./$binary)
-    time=$(echo "$output" | grep "Execution time" | awk '{print $3}')
-    
-    # Save results
-    echo "$name,$time,$size" >> compiler_results.csv
-    
-    # Print results
-    echo "$output"
-    echo "Binary size: $size bytes"
-    echo ""
-}
-
-# Run all benchmarks
-run_benchmark matrix_multiply_O0 "O0"
-run_benchmark matrix_multiply_O1 "O1"
-run_benchmark matrix_multiply_O2 "O2"
-run_benchmark matrix_multiply_O3 "O3"
-run_benchmark matrix_multiply_Os "Os"
-run_benchmark matrix_multiply_neoverse "Neoverse"
-run_benchmark matrix_multiply_lto "LTO"
-run_benchmark matrix_multiply_fastmath "FastMath"
-run_benchmark matrix_multiply_all "All"
-
-echo "Benchmark complete. Results saved to compiler_results.csv"
-
-# Generate simple report
-echo -e "\nPerformance Summary (normalized to -O0):"
-O0_TIME=$(grep "O0," compiler_results.csv | cut -d, -f2)
-
-awk -F, -v o0="$O0_TIME" 'NR>1 {printf "%-10s: %.2fx speedup, %10s bytes\n", $1, o0/$2, $3}' compiler_results.csv
-```
-
-Make the script executable:
-
-```bash
-chmod +x run_compiler_benchmark.sh
-```
 
 ### Step 5: Run the Benchmark
 

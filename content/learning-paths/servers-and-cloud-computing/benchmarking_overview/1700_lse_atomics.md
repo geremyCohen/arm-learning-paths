@@ -1,8 +1,6 @@
 ---
 title: Large System Extensions (LSE) Atomics
 weight: 1700
-
-### FIXED, DO NOT MODIFY
 layout: learningpathall
 ---
 
@@ -12,399 +10,81 @@ Large System Extensions (LSE) were introduced in Armv8.1-A to improve the perfor
 
 When comparing Intel/AMD (x86) versus Arm architectures, LSE brings Arm's atomic operation performance closer to x86's, which has long had efficient atomic instructions. This is particularly important for multi-threaded applications and synchronization primitives.
 
-## Benchmarking Exercise: Comparing Atomic Operation Performance
-
-In this exercise, we'll measure and compare the performance of atomic operations using traditional LD/ST-EX pairs versus LSE instructions on Arm Neoverse processors.
+## Benchmarking Exercise
 
 ### Prerequisites
+
+Ensure you have:
+- Completed the repository setup from the previous chapter
+- Two Ubuntu systems with the bench_guide repository cloned
+
+### Step 1: Navigate to Directory
+
+Navigate to the benchmark directory:
+
+```bash
+cd bench_guide/atomic_operations
+```
+
+### Step 2: Install Dependencies
+
+Run the setup script:
+
+```bash
+./setup.sh
+```
+
+### Step 3: Run the Benchmark
+
+Execute the benchmark:
+
+```bash
+./benchmark.sh
+```
+
+### Step 4: Analyze the Results
 
 Ensure you have an Arm VM with:
 - Arm (aarch64) with Armv8.1-A or newer (for LSE support)
 - GCC or Clang compiler installed
 
-### Step 1: Install Required Tools
+### Step 1: Download and Run Setup Script
 
-Run the following commands:
-
-```bash
-sudo apt update
-sudo apt install -y build-essential gcc g++
-```
-
-### Step 2: Create LSE Benchmark
-
-Create a file named `lse_benchmark.c` with the following content:
-
-```c
-#include <stdio.h>
-#include <stdlib.h>
-#include <pthread.h>
-#include <time.h>
-#include <stdint.h>
-#include <stdatomic.h>
-
-#define NUM_THREADS 4
-#define ITERATIONS 10000000
-
-// Function to measure time
-double get_time() {
-    struct timespec ts;
-    clock_gettime(CLOCK_MONOTONIC, &ts);
-    return ts.tv_sec + ts.tv_nsec / 1.0e9;
-}
-
-// Thread argument structure
-typedef struct {
-    int thread_id;
-    int num_iterations;
-    _Atomic int *counter;
-    int use_lse;
-} thread_arg_t;
-
-// Thread function for atomic increment
-void* atomic_increment_thread(void* arg) {
-    thread_arg_t* thread_arg = (thread_arg_t*)arg;
-    _Atomic int *counter = thread_arg->counter;
-    int iterations = thread_arg->num_iterations;
-    
-    if (thread_arg->use_lse) {
-        // Use C11 atomics (will use LSE on supported hardware)
-        for (int i = 0; i < iterations; i++) {
-            atomic_fetch_add(counter, 1);
-        }
-    } else {
-        // Use inline assembly with load-exclusive/store-exclusive
-        for (int i = 0; i < iterations; i++) {
-            int old_val, new_val;
-            do {
-                // Load exclusive
-                __asm__ volatile("ldxr %w0, [%2]"
-                                : "=&r" (old_val)
-                                : "m" (*counter), "r" (counter)
-                                : "memory");
-                
-                new_val = old_val + 1;
-                
-                // Store exclusive
-                int store_result;
-                __asm__ volatile("stxr %w0, %w1, [%3]"
-                                : "=&r" (store_result), "=m" (*counter)
-                                : "r" (new_val), "r" (counter)
-                                : "memory");
-                
-                // If store failed, retry
-            } while (store_result != 0);
-        }
-    }
-    
-    return NULL;
-}
-
-int main() {
-    printf("CPU Architecture: %s\n", 
-        #ifdef __aarch64__
-        "aarch64"
-        #else
-        "other"
-        #endif
-    );
-    
-    // Check for LSE support
-    #ifdef __ARM_FEATURE_ATOMICS
-    printf("LSE Atomics: Supported by compiler\n");
-    #else
-    printf("LSE Atomics: Not supported by compiler\n");
-    #endif
-    
-    // Allocate counters
-    _Atomic int *counter_ldstex = (_Atomic int*)malloc(sizeof(_Atomic int));
-    _Atomic int *counter_lse = (_Atomic int*)malloc(sizeof(_Atomic int));
-    
-    if (!counter_ldstex || !counter_lse) {
-        perror("malloc");
-        return 1;
-    }
-    
-    *counter_ldstex = 0;
-    *counter_lse = 0;
-    
-    // Create thread arguments
-    thread_arg_t thread_args_ldstex[NUM_THREADS];
-    thread_arg_t thread_args_lse[NUM_THREADS];
-    pthread_t threads_ldstex[NUM_THREADS];
-    pthread_t threads_lse[NUM_THREADS];
-    
-    // Benchmark LD/ST-EX
-    printf("\nBenchmarking LD/ST-EX atomic operations...\n");
-    double start = get_time();
-    
-    for (int i = 0; i < NUM_THREADS; i++) {
-        thread_args_ldstex[i].thread_id = i;
-        thread_args_ldstex[i].num_iterations = ITERATIONS / NUM_THREADS;
-        thread_args_ldstex[i].counter = counter_ldstex;
-        thread_args_ldstex[i].use_lse = 0;
-        
-        pthread_create(&threads_ldstex[i], NULL, atomic_increment_thread, &thread_args_ldstex[i]);
-    }
-    
-    for (int i = 0; i < NUM_THREADS; i++) {
-        pthread_join(threads_ldstex[i], NULL);
-    }
-    
-    double end = get_time();
-    double ldstex_time = end - start;
-    
-    printf("LD/ST-EX time: %.6f seconds\n", ldstex_time);
-    printf("LD/ST-EX operations per second: %.2f million\n", 
-           ITERATIONS / ldstex_time / 1000000);
-    printf("Final counter value: %d\n", *counter_ldstex);
-    
-    // Benchmark LSE
-    printf("\nBenchmarking LSE atomic operations...\n");
-    start = get_time();
-    
-    for (int i = 0; i < NUM_THREADS; i++) {
-        thread_args_lse[i].thread_id = i;
-        thread_args_lse[i].num_iterations = ITERATIONS / NUM_THREADS;
-        thread_args_lse[i].counter = counter_lse;
-        thread_args_lse[i].use_lse = 1;
-        
-        pthread_create(&threads_lse[i], NULL, atomic_increment_thread, &thread_args_lse[i]);
-    }
-    
-    for (int i = 0; i < NUM_THREADS; i++) {
-        pthread_join(threads_lse[i], NULL);
-    }
-    
-    end = get_time();
-    double lse_time = end - start;
-    
-    printf("LSE time: %.6f seconds\n", lse_time);
-    printf("LSE operations per second: %.2f million\n", 
-           ITERATIONS / lse_time / 1000000);
-    printf("Final counter value: %d\n", *counter_lse);
-    
-    // Calculate speedup
-    printf("\nLSE speedup: %.2fx\n", ldstex_time / lse_time);
-    
-    free(counter_ldstex);
-    free(counter_lse);
-    
-    return 0;
-}
-```
-
-Compile with LSE support:
+Download and run the setup script to install required tools:
 
 ```bash
-# See: ../2400_compiler_optimizations.md#cpu-specific-flags
-gcc -O3 -march=armv8.1-a+lse -pthread lse_benchmark.c -o lse_benchmark
+curl -O https://raw.githubusercontent.com/geremyCohen/bench_guide/main/atomic_operations/setup.sh
+chmod +x setup.sh
+./setup.sh
 ```
 
-### Step 3: Create Lock-Free Queue Benchmark
+### Step 2: Download Benchmark Files
+
+Download the benchmark files:
+
+```bash
+curl -O https://raw.githubusercontent.com/geremyCohen/bench_guide/main/atomic_operations/lse_benchmark.c
+curl -O https://raw.githubusercontent.com/geremyCohen/bench_guide/main/atomic_operations/lockfree_queue_benchmark.c
+```
+
+### Step 3: Run the Benchmark
+
+Execute the benchmark script:
+
+```bash
+curl -O https://raw.githubusercontent.com/geremyCohen/bench_guide/main/atomic_operations/benchmark.sh
+chmod +x benchmark.sh
+./benchmark.sh | tee lse_benchmark_results.txt
+```
+
+The benchmark script will:
+1. Compile the LSE and lock-free queue benchmarks with appropriate compiler flags
+2. Run both benchmarks and display performance comparisons
+3. Show LSE speedup over traditional LD/ST-EX operations
+
+### Step 4: Analyze the Results
 
 Create a file named `lockfree_queue_benchmark.c` with the following content:
-
-```c
-#include <stdio.h>
-#include <stdlib.h>
-#include <pthread.h>
-#include <time.h>
-#include <stdint.h>
-#include <stdatomic.h>
-
-#define QUEUE_SIZE 1000000
-#define NUM_PRODUCERS 2
-#define NUM_CONSUMERS 2
-#define ITEMS_PER_PRODUCER 1000000
-
-// Function to measure time
-double get_time() {
-    struct timespec ts;
-    clock_gettime(CLOCK_MONOTONIC, &ts);
-    return ts.tv_sec + ts.tv_nsec / 1.0e9;
-}
-
-// Lock-free queue structure
-typedef struct {
-    int *buffer;
-    _Atomic int head;
-    _Atomic int tail;
-    int size;
-} lockfree_queue_t;
-
-// Initialize queue
-void queue_init(lockfree_queue_t *queue, int size) {
-    queue->buffer = (int*)malloc(size * sizeof(int));
-    queue->head = 0;
-    queue->tail = 0;
-    queue->size = size;
-}
-
-// Enqueue item (producer)
-int queue_enqueue(lockfree_queue_t *queue, int item) {
-    int tail = atomic_load(&queue->tail);
-    int next_tail = (tail + 1) % queue->size;
-    
-    if (next_tail == atomic_load(&queue->head)) {
-        // Queue is full
-        return 0;
-    }
-    
-    queue->buffer[tail] = item;
-    atomic_store(&queue->tail, next_tail);
-    return 1;
-}
-
-// Dequeue item (consumer)
-int queue_dequeue(lockfree_queue_t *queue, int *item) {
-    int head = atomic_load(&queue->head);
-    
-    if (head == atomic_load(&queue->tail)) {
-        // Queue is empty
-        return 0;
-    }
-    
-    *item = queue->buffer[head];
-    atomic_store(&queue->head, (head + 1) % queue->size);
-    return 1;
-}
-
-// Thread argument structure
-typedef struct {
-    int thread_id;
-    lockfree_queue_t *queue;
-    int num_items;
-    _Atomic int *total;
-} thread_arg_t;
-
-// Producer thread function
-void* producer_thread(void* arg) {
-    thread_arg_t* thread_arg = (thread_arg_t*)arg;
-    lockfree_queue_t *queue = thread_arg->queue;
-    int num_items = thread_arg->num_items;
-    
-    for (int i = 0; i < num_items; i++) {
-        int item = thread_arg->thread_id * num_items + i + 1;
-        while (!queue_enqueue(queue, item)) {
-            // Queue is full, retry
-            pthread_yield();
-        }
-    }
-    
-    return NULL;
-}
-
-// Consumer thread function
-void* consumer_thread(void* arg) {
-    thread_arg_t* thread_arg = (thread_arg_t*)arg;
-    lockfree_queue_t *queue = thread_arg->queue;
-    int num_items = thread_arg->num_items;
-    _Atomic int *total = thread_arg->total;
-    
-    for (int i = 0; i < num_items; i++) {
-        int item;
-        while (!queue_dequeue(queue, &item)) {
-            // Queue is empty, retry
-            pthread_yield();
-        }
-        atomic_fetch_add(total, item);
-    }
-    
-    return NULL;
-}
-
-int main() {
-    printf("CPU Architecture: %s\n", 
-        #ifdef __aarch64__
-        "aarch64"
-        #else
-        "other"
-        #endif
-    );
-    
-    // Check for LSE support
-    #ifdef __ARM_FEATURE_ATOMICS
-    printf("LSE Atomics: Supported by compiler\n");
-    #else
-    printf("LSE Atomics: Not supported by compiler\n");
-    #endif
-    
-    // Initialize queue
-    lockfree_queue_t queue;
-    queue_init(&queue, QUEUE_SIZE);
-    
-    // Initialize total
-    _Atomic int total = 0;
-    
-    // Create thread arguments
-    thread_arg_t producer_args[NUM_PRODUCERS];
-    thread_arg_t consumer_args[NUM_CONSUMERS];
-    pthread_t producer_threads[NUM_PRODUCERS];
-    pthread_t consumer_threads[NUM_CONSUMERS];
-    
-    // Calculate items per consumer
-    int items_per_consumer = (ITEMS_PER_PRODUCER * NUM_PRODUCERS) / NUM_CONSUMERS;
-    
-    printf("\nBenchmarking lock-free queue with %d producers and %d consumers...\n", 
-           NUM_PRODUCERS, NUM_CONSUMERS);
-    printf("Each producer will enqueue %d items\n", ITEMS_PER_PRODUCER);
-    printf("Each consumer will dequeue %d items\n", items_per_consumer);
-    
-    double start = get_time();
-    
-    // Start consumer threads
-    for (int i = 0; i < NUM_CONSUMERS; i++) {
-        consumer_args[i].thread_id = i;
-        consumer_args[i].queue = &queue;
-        consumer_args[i].num_items = items_per_consumer;
-        consumer_args[i].total = &total;
-        
-        pthread_create(&consumer_threads[i], NULL, consumer_thread, &consumer_args[i]);
-    }
-    
-    // Start producer threads
-    for (int i = 0; i < NUM_PRODUCERS; i++) {
-        producer_args[i].thread_id = i;
-        producer_args[i].queue = &queue;
-        producer_args[i].num_items = ITEMS_PER_PRODUCER;
-        producer_args[i].total = &total;
-        
-        pthread_create(&producer_threads[i], NULL, producer_thread, &producer_args[i]);
-    }
-    
-    // Wait for producer threads to complete
-    for (int i = 0; i < NUM_PRODUCERS; i++) {
-        pthread_join(producer_threads[i], NULL);
-    }
-    
-    // Wait for consumer threads to complete
-    for (int i = 0; i < NUM_CONSUMERS; i++) {
-        pthread_join(consumer_threads[i], NULL);
-    }
-    
-    double end = get_time();
-    double elapsed = end - start;
-    
-    printf("Total time: %.6f seconds\n", elapsed);
-    printf("Operations per second: %.2f million\n", 
-           (ITEMS_PER_PRODUCER * NUM_PRODUCERS * 2) / elapsed / 1000000);
-    printf("Final total: %d\n", total);
-    
-    // Calculate expected total
-    int expected_total = 0;
-    for (int i = 0; i < NUM_PRODUCERS; i++) {
-        for (int j = 0; j < ITEMS_PER_PRODUCER; j++) {
-            expected_total += i * ITEMS_PER_PRODUCER + j + 1;
-        }
-    }
-    printf("Expected total: %d\n", expected_total);
-    
-    free(queue.buffer);
-    
-    return 0;
-}
-```
 
 Compile with LSE support:
 
@@ -589,81 +269,9 @@ struct good_counters {
 
 Reduce contention by batching atomic operations:
 
-```c
-// High contention approach
-void increment_counter(_Atomic int *counter) {
-    for (int i = 0; i < 100; i++) {
-        atomic_fetch_add(counter, 1);
-    }
-}
-
-// Batched approach with lower contention
-void batched_increment(_Atomic int *counter) {
-    // Do local work first
-    int local_sum = 0;
-    for (int i = 0; i < 100; i++) {
-        local_sum++;
-    }
-    
-    // Single atomic update
-    atomic_fetch_add(counter, local_sum);
-}
-```
-
 ### 3. Lock-Free Ring Buffer with LSE
 
 Implement an efficient lock-free ring buffer using LSE:
-
-```c
-#include <stdatomic.h>
-
-typedef struct {
-    void *buffer[BUFFER_SIZE];
-    _Atomic unsigned head;
-    _Atomic unsigned tail;
-} ring_buffer_t;
-
-// Initialize ring buffer
-void ring_buffer_init(ring_buffer_t *rb) {
-    atomic_store(&rb->head, 0);
-    atomic_store(&rb->tail, 0);
-}
-
-// Enqueue item (non-blocking)
-int ring_buffer_enqueue(ring_buffer_t *rb, void *item) {
-    unsigned tail = atomic_load(&rb->tail);
-    unsigned next_tail = (tail + 1) % BUFFER_SIZE;
-    
-    // Check if buffer is full
-    if (next_tail == atomic_load(&rb->head)) {
-        return 0;  // Buffer full
-    }
-    
-    // Store item
-    rb->buffer[tail] = item;
-    
-    // Update tail with release semantics
-    atomic_store_explicit(&rb->tail, next_tail, memory_order_release);
-    return 1;
-}
-
-// Dequeue item (non-blocking)
-int ring_buffer_dequeue(ring_buffer_t *rb, void **item) {
-    unsigned head = atomic_load(&rb->head);
-    
-    // Check if buffer is empty
-    if (head == atomic_load(&rb->tail)) {
-        return 0;  // Buffer empty
-    }
-    
-    // Get item
-    *item = rb->buffer[head];
-    
-    // Update head with release semantics
-    atomic_store_explicit(&rb->head, (head + 1) % BUFFER_SIZE, memory_order_release);
-    return 1;
-}
-```
 
 ### 4. Memory Ordering Optimization
 

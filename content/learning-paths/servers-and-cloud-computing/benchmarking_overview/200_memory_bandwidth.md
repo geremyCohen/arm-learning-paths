@@ -1,8 +1,6 @@
 ---
 title: Memory Bandwidth
 weight: 200
-
-### FIXED, DO NOT MODIFY
 layout: learningpathall
 ---
 
@@ -16,11 +14,39 @@ For more detailed information about memory bandwidth, you can refer to:
 - [Memory Bandwidth Explained](https://www.crucial.com/articles/about-memory/what-is-memory-bandwidth)
 - [Memory Performance: Stream Benchmark](https://www.cs.virginia.edu/stream/)
 
-## Benchmarking Exercise: Comparing Memory Bandwidth
-
-In this exercise, we'll use the STREAM benchmark, a widely recognized tool for measuring memory bandwidth, to compare performance between Intel/AMD and Arm systems.
+## Benchmarking Exercise
 
 ### Prerequisites
+
+Ensure you have:
+- Completed the repository setup from the previous chapter
+- Two Ubuntu systems with the bench_guide repository cloned
+
+### Step 1: Navigate to Directory
+
+Navigate to the benchmark directory:
+
+```bash
+cd bench_guide/memory_bandwidth
+```
+
+### Step 2: Install Dependencies
+
+Run the setup script:
+
+```bash
+./setup.sh
+```
+
+### Step 3: Run the Benchmark
+
+Execute the benchmark:
+
+```bash
+./benchmark.sh
+```
+
+### Step 4: Analyze the Results
 
 Ensure you have two Ubuntu VMs:
 - One running on Intel/AMD (x86_64)
@@ -28,89 +54,31 @@ Ensure you have two Ubuntu VMs:
 
 Both should have similar memory configurations for fair comparison.
 
-### Step 1: Install Required Tools
+### Step 1: Download and Run Setup Script
 
-Run the following commands on both VMs:
+Download and run the setup script to install required tools and download/compile the STREAM benchmark:
 
 ```bash
-sudo apt update
-sudo apt install -y build-essential git time
+curl -O https://raw.githubusercontent.com/geremyCohen/bench_guide/main/memory_bandwidth/setup.sh
+chmod +x setup.sh
+./setup.sh
 ```
 
-### Step 2: Download and Compile STREAM Benchmark
+This script:
+1. Installs necessary packages (build-essential, git, time)
+2. Downloads the STREAM benchmark from GitHub
+3. Compiles the benchmark with optimizations
+
+### Step 2: Download Benchmark Script
+
+Download the benchmark script:
 
 ```bash
-git clone https://github.com/jeffhammond/STREAM.git
-cd STREAM
-
-# Compile with optimizations
-gcc -O3 -fopenmp -DSTREAM_ARRAY_SIZE=100000000 -DNTIMES=10 stream.c -o stream
-```
-
-### Step 3: Create Benchmark Script
-
-Create a file named `memory_benchmark.sh` with the following content:
-
-```bash
-#!/bin/bash
-
-# Function to get architecture
-get_arch() {
-  arch=$(uname -m)
-  if [[ "$arch" == "x86_64" ]]; then
-    echo "Intel/AMD (x86_64)"
-  elif [[ "$arch" == "aarch64" ]]; then
-    echo "Arm (aarch64)"
-  else
-    echo "Unknown architecture: $arch"
-  fi
-}
-
-# Display system information
-echo "=== System Information ==="
-echo "Architecture: $(get_arch)"
-echo "CPU Model:"
-lscpu | grep "Model name"
-echo "Memory Information:"
-free -h
-echo ""
-
-# Set environment variables for OpenMP
-export OMP_NUM_THREADS=$(nproc)
-
-# Run STREAM benchmark
-echo "=== Running STREAM Memory Bandwidth Benchmark ==="
-echo "Using $(nproc) threads"
-
-# Run the benchmark multiple times and calculate average
-echo "Running 5 iterations..."
-for i in {1..5}; do
-  echo "Iteration $i:"
-  ./stream | grep -E "Copy:|Scale:|Add:|Triad:"
-  echo ""
-  sleep 2
-done
-
-# Run with different thread counts to test scaling
-echo "=== Testing Memory Bandwidth Scaling ==="
-for threads in 1 2 4 $(nproc); do
-  if [ $threads -le $(nproc) ]; then
-    echo "Running with $threads threads:"
-    export OMP_NUM_THREADS=$threads
-    ./stream | grep -E "Copy:|Scale:|Add:|Triad:"
-    echo ""
-    sleep 2
-  fi
-done
-```
-
-Make the script executable:
-
-```bash
+curl -O https://raw.githubusercontent.com/geremyCohen/bench_guide/main/memory_bandwidth/memory_benchmark.sh
 chmod +x memory_benchmark.sh
 ```
 
-### Step 4: Run the Benchmark
+### Step 3: Run the Benchmark
 
 Execute the benchmark script on both VMs:
 

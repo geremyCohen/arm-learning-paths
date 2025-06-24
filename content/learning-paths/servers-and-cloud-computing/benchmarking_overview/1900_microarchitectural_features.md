@@ -1,8 +1,6 @@
 ---
 title: Microarchitectural Features
 weight: 1900
-
-### FIXED, DO NOT MODIFY
 layout: learningpathall
 ---
 
@@ -17,11 +15,39 @@ For more detailed information about microarchitectural features, you can refer t
 - [Arm Cortex-A Series Programmer's Guide](https://developer.arm.com/documentation/den0024/latest/)
 - [Intel Optimization Reference Manual](https://software.intel.com/content/www/us/en/develop/download/intel-64-and-ia-32-architectures-optimization-reference-manual.html)
 
-## Benchmarking Exercise: Comparing Microarchitectural Features
-
-In this exercise, we'll measure and compare the impact of various microarchitectural features across Intel/AMD and Arm architectures.
+## Benchmarking Exercise
 
 ### Prerequisites
+
+Ensure you have:
+- Completed the repository setup from the previous chapter
+- Two Ubuntu systems with the bench_guide repository cloned
+
+### Step 1: Navigate to Directory
+
+Navigate to the benchmark directory:
+
+```bash
+cd bench_guide/microarchitectural
+```
+
+### Step 2: Install Dependencies
+
+Run the setup script:
+
+```bash
+./setup.sh
+```
+
+### Step 3: Run the Benchmark
+
+Execute the benchmark:
+
+```bash
+./benchmark.sh
+```
+
+### Step 4: Analyze the Results
 
 Ensure you have two Ubuntu VMs:
 - One running on Intel/AMD (x86_64)
@@ -29,7 +55,27 @@ Ensure you have two Ubuntu VMs:
 
 Both should have similar specifications for fair comparison.
 
-### Step 1: Install Required Tools
+### Step 1: Download and Run Setup Script
+
+Download and run the setup script to install required tools:
+
+```bash
+curl -O https://raw.githubusercontent.com/geremyCohen/bench_guide/main/microarchitectural/setup.sh
+chmod +x setup.sh
+./setup.sh
+```
+
+### Step 2: Run the Benchmark
+
+Execute the benchmark script on both VMs:
+
+```bash
+curl -O https://raw.githubusercontent.com/geremyCohen/bench_guide/main/microarchitectural/benchmark.sh
+chmod +x benchmark.sh
+./benchmark.sh | tee microarchitectural_results.txt
+```
+
+### Step 3: Analyze the Results Install Required Tools
 
 Run the following commands on both VMs:
 
@@ -42,349 +88,9 @@ sudo apt install -y build-essential gcc python3-matplotlib
 
 Create a file named `ooo_benchmark.c` with the following content:
 
-```c
-#include <stdio.h>
-#include <stdlib.h>
-#include <time.h>
-#include <stdint.h>
-
-#define ARRAY_SIZE 16384
-#define ITERATIONS 1000
-
-// Function to measure time
-double get_time() {
-    struct timespec ts;
-    clock_gettime(CLOCK_MONOTONIC, &ts);
-    return ts.tv_sec + ts.tv_nsec / 1.0e9;
-}
-
-// Test with dependent operations (limited OoO execution)
-void test_dependent_operations() {
-    uint64_t *array = malloc(ARRAY_SIZE * sizeof(uint64_t));
-    if (!array) {
-        perror("malloc");
-        return;
-    }
-    
-    // Initialize array
-    for (int i = 0; i < ARRAY_SIZE; i++) {
-        array[i] = i;
-    }
-    
-    // Warmup
-    uint64_t sum = 0;
-    for (int i = 0; i < ARRAY_SIZE; i++) {
-        sum += array[i];
-    }
-    
-    double start = get_time();
-    
-    // Create a chain of dependent operations
-    for (int iter = 0; iter < ITERATIONS; iter++) {
-        sum = 0;
-        for (int i = 0; i < ARRAY_SIZE; i++) {
-            sum = sum + array[i];  // Each operation depends on the previous sum
-        }
-    }
-    
-    double end = get_time();
-    double elapsed = end - start;
-    
-    printf("Dependent Operations:\n");
-    printf("  Time: %.6f seconds\n", elapsed);
-    printf("  Operations: %d\n", ARRAY_SIZE * ITERATIONS);
-    printf("  Operations per second: %.2f million\n", 
-           (ARRAY_SIZE * ITERATIONS) / (elapsed * 1000000));
-    printf("  Result: %lu\n", sum);  // Prevent optimization
-    
-    free(array);
-}
-
-// Test with independent operations (good for OoO execution)
-void test_independent_operations() {
-    uint64_t *array = malloc(ARRAY_SIZE * sizeof(uint64_t));
-    uint64_t *results = malloc(ARRAY_SIZE * sizeof(uint64_t));
-    if (!array || !results) {
-        perror("malloc");
-        free(array);
-        free(results);
-        return;
-    }
-    
-    // Initialize arrays
-    for (int i = 0; i < ARRAY_SIZE; i++) {
-        array[i] = i;
-        results[i] = 0;
-    }
-    
-    // Warmup
-    for (int i = 0; i < ARRAY_SIZE; i++) {
-        results[i] += array[i];
-    }
-    
-    double start = get_time();
-    
-    // Create independent operations
-    for (int iter = 0; iter < ITERATIONS; iter++) {
-        for (int i = 0; i < ARRAY_SIZE; i++) {
-            results[i] += array[i];  // Operations are independent of each other
-        }
-    }
-    
-    double end = get_time();
-    double elapsed = end - start;
-    
-    // Calculate sum for result verification
-    uint64_t sum = 0;
-    for (int i = 0; i < ARRAY_SIZE; i++) {
-        sum += results[i];
-    }
-    
-    printf("Independent Operations:\n");
-    printf("  Time: %.6f seconds\n", elapsed);
-    printf("  Operations: %d\n", ARRAY_SIZE * ITERATIONS);
-    printf("  Operations per second: %.2f million\n", 
-           (ARRAY_SIZE * ITERATIONS) / (elapsed * 1000000));
-    printf("  Result: %lu\n", sum);  // Prevent optimization
-    
-    free(array);
-    free(results);
-}
-
-// Test memory-dependent operations (limited by memory access)
-void test_memory_dependent_operations() {
-    uint64_t *array = malloc(ARRAY_SIZE * sizeof(uint64_t));
-    if (!array) {
-        perror("malloc");
-        return;
-    }
-    
-    // Initialize array as a linked list
-    for (int i = 0; i < ARRAY_SIZE - 1; i++) {
-        array[i] = (uint64_t)&array[i + 1];
-    }
-    array[ARRAY_SIZE - 1] = (uint64_t)&array[0];  // Make it circular
-    
-    // Warmup
-    uint64_t *p = (uint64_t *)array[0];
-    for (int i = 0; i < 1000; i++) {
-        p = (uint64_t *)*p;
-    }
-    
-    double start = get_time();
-    
-    // Create a chain of memory-dependent operations
-    p = (uint64_t *)array[0];
-    for (int i = 0; i < ITERATIONS * ARRAY_SIZE / 100; i++) {
-        p = (uint64_t *)*p;  // Each load depends on the previous load
-    }
-    
-    double end = get_time();
-    double elapsed = end - start;
-    
-    printf("Memory-Dependent Operations:\n");
-    printf("  Time: %.6f seconds\n", elapsed);
-    printf("  Operations: %d\n", ITERATIONS * ARRAY_SIZE / 100);
-    printf("  Operations per second: %.2f million\n", 
-           (ITERATIONS * ARRAY_SIZE / 100) / (elapsed * 1000000));
-    printf("  Result: %p\n", p);  // Prevent optimization
-    
-    free(array);
-}
-
-int main() {
-    printf("CPU Architecture: %s\n", 
-        #ifdef __x86_64__
-        "x86_64"
-        #elif defined(__aarch64__)
-        "aarch64"
-        #else
-        "unknown"
-        #endif
-    );
-    
-    printf("\nTesting Out-of-Order Execution Capabilities\n");
-    printf("==========================================\n\n");
-    
-    test_dependent_operations();
-    printf("\n");
-    test_independent_operations();
-    printf("\n");
-    test_memory_dependent_operations();
-    
-    return 0;
-}
-```
-
 ### Step 3: Create Reorder Buffer Test
 
 Create a file named `rob_benchmark.c` with the following content:
-
-```c
-#include <stdio.h>
-#include <stdlib.h>
-#include <time.h>
-#include <stdint.h>
-
-// Function to measure time
-double get_time() {
-    struct timespec ts;
-    clock_gettime(CLOCK_MONOTONIC, &ts);
-    return ts.tv_sec + ts.tv_nsec / 1.0e9;
-}
-
-// Test with varying instruction window sizes
-void test_instruction_window(int window_size) {
-    const int iterations = 10000000;
-    
-    // Allocate arrays
-    uint64_t *a = malloc(window_size * sizeof(uint64_t));
-    uint64_t *b = malloc(window_size * sizeof(uint64_t));
-    if (!a || !b) {
-        perror("malloc");
-        free(a);
-        free(b);
-        return;
-    }
-    
-    // Initialize arrays
-    for (int i = 0; i < window_size; i++) {
-        a[i] = i;
-        b[i] = 0;
-    }
-    
-    // Warmup
-    for (int i = 0; i < window_size; i++) {
-        b[i] = a[i] + 1;
-    }
-    
-    double start = get_time();
-    
-    // Run test with specified window size
-    for (int iter = 0; iter < iterations / window_size; iter++) {
-        for (int i = 0; i < window_size; i++) {
-            b[i] = a[i] + 1;  // Independent operations
-        }
-    }
-    
-    double end = get_time();
-    double elapsed = end - start;
-    double ops_per_second = (iterations / window_size) * window_size / elapsed;
-    
-    // Calculate sum for result verification
-    uint64_t sum = 0;
-    for (int i = 0; i < window_size; i++) {
-        sum += b[i];
-    }
-    
-    printf("Window Size %d:\n", window_size);
-    printf("  Time: %.6f seconds\n", elapsed);
-    printf("  Operations per second: %.2f million\n", ops_per_second / 1000000);
-    printf("  Result: %lu\n", sum);  // Prevent optimization
-    
-    free(a);
-    free(b);
-}
-
-int main() {
-    printf("CPU Architecture: %s\n", 
-        #ifdef __x86_64__
-        "x86_64"
-        #elif defined(__aarch64__)
-        "aarch64"
-        #else
-        "unknown"
-        #endif
-    );
-    
-    printf("\nTesting Reorder Buffer / Instruction Window Size\n");
-    printf("=============================================\n\n");
-    
-    // Test with different window sizes
-    test_instruction_window(16);
-    printf("\n");
-    test_instruction_window(32);
-    printf("\n");
-    test_instruction_window(64);
-    printf("\n");
-    test_instruction_window(128);
-    printf("\n");
-    test_instruction_window(256);
-    
-    return 0;
-}
-```
-
-### Step 4: Create Benchmark Script
-
-Create a file named `run_microarch_benchmark.sh` with the following content:
-
-```bash
-#!/bin/bash
-
-# Get architecture and CPU info
-arch=$(uname -m)
-echo "Architecture: $arch"
-echo "CPU: $(lscpu | grep 'Model name' | cut -d: -f2 | xargs)"
-
-# Compile benchmarks
-echo "Compiling benchmarks..."
-gcc -O3 ooo_benchmark.c -o ooo_benchmark
-gcc -O3 rob_benchmark.c -o rob_benchmark
-
-# Run out-of-order execution benchmark
-echo "Running out-of-order execution benchmark..."
-./ooo_benchmark | tee ooo_results.txt
-
-# Run reorder buffer benchmark
-echo "Running reorder buffer benchmark..."
-./rob_benchmark | tee rob_results.txt
-
-# Extract and format results
-echo "Test,Time (s),Operations per second (M)" > ooo_summary.csv
-grep -A 2 "Dependent Operations:" ooo_results.txt | grep "Time:" | awk '{print "Dependent," $2}' > tmp1.txt
-grep -A 3 "Dependent Operations:" ooo_results.txt | grep "Operations per second:" | awk '{print $4}' > tmp2.txt
-paste -d, tmp1.txt tmp2.txt >> ooo_summary.csv
-
-grep -A 2 "Independent Operations:" ooo_results.txt | grep "Time:" | awk '{print "Independent," $2}' > tmp1.txt
-grep -A 3 "Independent Operations:" ooo_results.txt | grep "Operations per second:" | awk '{print $4}' > tmp2.txt
-paste -d, tmp1.txt tmp2.txt >> ooo_summary.csv
-
-grep -A 2 "Memory-Dependent Operations:" ooo_results.txt | grep "Time:" | awk '{print "Memory-Dependent," $2}' > tmp1.txt
-grep -A 3 "Memory-Dependent Operations:" ooo_results.txt | grep "Operations per second:" | awk '{print $4}' > tmp2.txt
-paste -d, tmp1.txt tmp2.txt >> ooo_summary.csv
-
-rm tmp1.txt tmp2.txt
-
-echo "Window Size,Time (s),Operations per second (M)" > rob_summary.csv
-for size in 16 32 64 128 256; do
-    grep -A 2 "Window Size $size:" rob_results.txt | grep "Time:" | awk -v size=$size '{print size "," $2}' > tmp1.txt
-    grep -A 3 "Window Size $size:" rob_results.txt | grep "Operations per second:" | awk '{print $4}' > tmp2.txt
-    paste -d, tmp1.txt tmp2.txt >> rob_summary.csv
-done
-
-rm tmp1.txt tmp2.txt
-
-echo "Benchmark complete. Results saved to ooo_summary.csv and rob_summary.csv"
-
-# Calculate performance ratios
-echo "Performance Ratios:"
-indep=$(grep "Independent" ooo_summary.csv | cut -d, -f3)
-dep=$(grep "Dependent" ooo_summary.csv | cut -d, -f3)
-ooo_ratio=$(echo "scale=2; $indep / $dep" | bc)
-echo "Independent/Dependent Ratio: ${ooo_ratio}x (higher values indicate better OoO execution)"
-
-win256=$(grep "^256," rob_summary.csv | cut -d, -f3)
-win16=$(grep "^16," rob_summary.csv | cut -d, -f3)
-rob_ratio=$(echo "scale=2; $win256 / $win16" | bc)
-echo "Window Size 256/16 Ratio: ${rob_ratio}x (higher values indicate larger effective reorder buffer)"
-```
-
-Make the script executable:
-
-```bash
-chmod +x run_microarch_benchmark.sh
-```
 
 ### Step 5: Run the Benchmark
 
@@ -420,80 +126,6 @@ Arm architectures offer several optimization techniques to leverage their unique
 
 Create a file named `arm_ooo_opt.c`:
 
-```c
-#include <stdio.h>
-#include <stdlib.h>
-#include <time.h>
-#include <stdint.h>
-
-#define ITERATIONS 10000000
-
-// Function to measure time
-double get_time() {
-    struct timespec ts;
-    clock_gettime(CLOCK_MONOTONIC, &ts);
-    return ts.tv_sec + ts.tv_nsec / 1.0e9;
-}
-
-// Function with long dependency chains (poor for OoO)
-uint64_t long_dependency_chain() {
-    uint64_t a = 1;
-    
-    for (int i = 0; i < ITERATIONS; i++) {
-        a = a * 3 + 1;  // Each iteration depends on previous result
-    }
-    
-    return a;
-}
-
-// Function optimized for Arm OoO execution
-uint64_t arm_ooo_optimized() {
-    uint64_t a = 1, b = 2, c = 3, d = 4;
-    
-    for (int i = 0; i < ITERATIONS; i++) {
-        // Multiple independent operations for better OoO execution
-        a = a * 3 + 1;
-        b = b * 5 + 2;
-        c = c * 7 + 3;
-        d = d * 9 + 4;
-    }
-    
-    return a + b + c + d;
-}
-
-int main() {
-    printf("CPU Architecture: %s\n", 
-        #ifdef __aarch64__
-        "aarch64"
-        #else
-        "other"
-        #endif
-    );
-    
-    // Test with long dependency chain
-    double start = get_time();
-    uint64_t result1 = long_dependency_chain();
-    double end = get_time();
-    printf("Long dependency chain time: %.6f seconds\n", end - start);
-    
-    // Test with Arm OoO optimized code
-    start = get_time();
-    uint64_t result2 = arm_ooo_optimized();
-    end = get_time();
-    printf("Arm OoO optimized time: %.6f seconds\n", end - start);
-    
-    // Calculate speedup
-    double speedup = (end - start) > 0 ? 
-        (end - start) / (end - start) : 0;
-    printf("Speedup: %.2fx\n", speedup);
-    
-    // Prevent optimization
-    printf("Results: %lu %lu\n", result1, result2);
-    
-    return 0;
-}
-```
-
 Compile with:
 
 ```bash
@@ -503,102 +135,6 @@ gcc -O3 -march=native arm_ooo_opt.c -o arm_ooo_opt
 ### 2. Optimizing for Arm's Reorder Buffer
 
 Create a file named `arm_rob_opt.c`:
-
-```c
-#include <stdio.h>
-#include <stdlib.h>
-#include <time.h>
-#include <stdint.h>
-
-#define ARRAY_SIZE 1024
-#define ITERATIONS 1000000
-
-// Function to measure time
-double get_time() {
-    struct timespec ts;
-    clock_gettime(CLOCK_MONOTONIC, &ts);
-    return ts.tv_sec + ts.tv_nsec / 1.0e9;
-}
-
-// Function with instruction window that exceeds ROB size
-uint64_t exceed_rob_size(uint32_t *array) {
-    uint64_t sum = 0;
-    
-    for (int iter = 0; iter < ITERATIONS; iter++) {
-        // Large number of operations in a tight loop
-        for (int i = 0; i < ARRAY_SIZE; i++) {
-            array[i] = array[i] + 1;
-        }
-        sum += array[0];
-    }
-    
-    return sum;
-}
-
-// Function optimized for Arm's ROB size
-uint64_t arm_rob_optimized(uint32_t *array) {
-    uint64_t sum = 0;
-    
-    for (int iter = 0; iter < ITERATIONS; iter++) {
-        // Process in chunks that fit within ROB
-        for (int chunk = 0; chunk < ARRAY_SIZE; chunk += 64) {
-            for (int i = chunk; i < chunk + 64 && i < ARRAY_SIZE; i++) {
-                array[i] = array[i] + 1;
-            }
-        }
-        sum += array[0];
-    }
-    
-    return sum;
-}
-
-int main() {
-    // Allocate and initialize array
-    uint32_t *array1 = (uint32_t *)malloc(ARRAY_SIZE * sizeof(uint32_t));
-    uint32_t *array2 = (uint32_t *)malloc(ARRAY_SIZE * sizeof(uint32_t));
-    
-    if (!array1 || !array2) {
-        perror("malloc");
-        return 1;
-    }
-    
-    for (int i = 0; i < ARRAY_SIZE; i++) {
-        array1[i] = array2[i] = i;
-    }
-    
-    printf("CPU Architecture: %s\n", 
-        #ifdef __aarch64__
-        "aarch64"
-        #else
-        "other"
-        #endif
-    );
-    
-    // Test with code that exceeds ROB size
-    double start = get_time();
-    uint64_t result1 = exceed_rob_size(array1);
-    double end = get_time();
-    printf("Exceeding ROB size time: %.6f seconds\n", end - start);
-    
-    // Test with Arm ROB optimized code
-    start = get_time();
-    uint64_t result2 = arm_rob_optimized(array2);
-    double end2 = get_time();
-    printf("Arm ROB optimized time: %.6f seconds\n", end2 - start);
-    
-    // Calculate speedup
-    double speedup = (end - start) > 0 ? 
-        (end - start) / (end2 - start) : 0;
-    printf("Speedup: %.2fx\n", speedup);
-    
-    // Prevent optimization
-    printf("Results: %lu %lu\n", result1, result2);
-    
-    free(array1);
-    free(array2);
-    return 0;
-}
-```
 
 Compile with:
 

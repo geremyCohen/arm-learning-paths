@@ -1,8 +1,6 @@
 ---
 title: Arm Memory Tagging Extension
 weight: 2300
-
-### FIXED, DO NOT MODIFY
 layout: learningpathall
 ---
 
@@ -17,17 +15,67 @@ For more detailed information about Arm Memory Tagging Extension, you can refer 
 - [Memory Tagging and how it improves C/C++ memory safety](https://www.arm.com/blogs/blueprint/memory-tagging-extension)
 - [Enhancing Memory Safety with MTE](https://community.arm.com/arm-community-blogs/b/architectures-and-processors-blog/posts/enhancing-memory-safety)
 
-## Benchmarking Exercise: Measuring MTE Performance Impact
-
-In this exercise, we'll measure the performance impact of enabling Memory Tagging Extension on Arm architecture.
+## Benchmarking Exercise
 
 ### Prerequisites
 
-Ensure you have an Arm VM with MTE support:
-- Arm (aarch64) with Armv8.5-A or newer architecture supporting MTE
-- Linux kernel 5.10 or newer with MTE support enabled
+Ensure you have:
+- Completed the repository setup from the previous chapter
+- ARM (aarch64) system with the bench_guide repository cloned
 
-### Step 1: Install Required Tools
+### Step 1: Navigate to Directory
+
+Navigate to the benchmark directory:
+
+```bash
+cd bench_guide/arm_memory_tagging
+```
+
+### Step 2: Install Dependencies
+
+Run the setup script:
+
+```bash
+./setup.sh
+```
+
+### Step 3: Run the Benchmark
+
+Execute the benchmark:
+
+```bash
+./benchmark.sh
+```
+
+### Step 4: Analyze the Results
+
+Ensure you have two Ubuntu VMs:
+- One running on Intel/AMD (x86_64)
+- One running on Arm (aarch64)
+
+Both should have similar specifications for fair comparison.
+
+### Step 1: Download and Run Setup Script
+
+Download and run the setup script to install required tools:
+
+```bash
+curl -O https://raw.githubusercontent.com/geremyCohen/bench_guide/main/arm_memory_tagging/setup.sh
+chmod +x setup.sh
+./setup.sh
+```
+
+### Step 2: Run the Benchmark
+
+Execute the benchmark script on both VMs:
+
+```bash
+curl -O https://raw.githubusercontent.com/geremyCohen/bench_guide/main/arm_memory_tagging/benchmark.sh
+chmod +x benchmark.sh
+./benchmark.sh | tee arm_memory_tagging_results.txt
+```
+
+### Step 3: Analyze the Results Install Required Tools
 
 Run the following commands:
 
@@ -40,408 +88,11 @@ sudo apt install -y build-essential gcc
 
 Create a file named `check_mte.c` with the following content:
 
-```c
-#include <stdio.h>
-#include <stdlib.h>
-#include <unistd.h>
-#include <sys/auxv.h>
-#include <sys/prctl.h>
-
-// Define constants if not available in headers
-#ifndef HWCAP2_MTE
-#define HWCAP2_MTE (1 << 18)
-#endif
-
-#ifndef PR_SET_TAGGED_ADDR_CTRL
-#define PR_SET_TAGGED_ADDR_CTRL 55
-#endif
-
-#ifndef PR_GET_TAGGED_ADDR_CTRL
-#define PR_GET_TAGGED_ADDR_CTRL 56
-#endif
-
-#ifndef PR_TAGGED_ADDR_ENABLE
-#define PR_TAGGED_ADDR_ENABLE (1UL << 0)
-#endif
-
-int main() {
-    // Check if MTE is supported by the hardware
-    unsigned long hwcap2 = getauxval(AT_HWCAP2);
-    int mte_supported = (hwcap2 & HWCAP2_MTE) != 0;
-    
-    printf("MTE hardware support: %s\n", mte_supported ? "Yes" : "No");
-    
-    if (mte_supported) {
-        // Check if MTE is enabled in the kernel
-        int ctrl = prctl(PR_GET_TAGGED_ADDR_CTRL);
-        if (ctrl == -1) {
-            perror("prctl");
-            return 1;
-        }
-        
-        int mte_enabled = (ctrl & PR_TAGGED_ADDR_ENABLE) != 0;
-        printf("MTE kernel support: %s\n", mte_enabled ? "Enabled" : "Disabled");
-        
-        // Try to enable MTE
-        if (!mte_enabled) {
-            printf("Attempting to enable MTE...\n");
-            if (prctl(PR_SET_TAGGED_ADDR_CTRL, PR_TAGGED_ADDR_ENABLE, 0, 0, 0) == -1) {
-                perror("Failed to enable MTE");
-            } else {
-                printf("MTE enabled successfully\n");
-            }
-        }
-    }
-    
-    return 0;
-}
-```
-
 Compile and run:
 
 ```bash
 gcc -o check_mte check_mte.c
 ./check_mte
-```
-
-### Step 3: Create MTE Benchmark
-
-Create a file named `mte_benchmark.c` with the following content:
-
-```c
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <time.h>
-#include <unistd.h>
-#include <sys/mman.h>
-#include <sys/prctl.h>
-
-// Define constants if not available in headers
-#ifndef PR_SET_TAGGED_ADDR_CTRL
-#define PR_SET_TAGGED_ADDR_CTRL 55
-#endif
-
-#ifndef PR_TAGGED_ADDR_ENABLE
-#define PR_TAGGED_ADDR_ENABLE (1UL << 0)
-#endif
-
-#ifndef PR_MTE_TCF_SYNC
-#define PR_MTE_TCF_SYNC (1UL << 1)
-#endif
-
-#define BUFFER_SIZE (100 * 1024 * 1024)  // 100MB
-#define ITERATIONS 10
-#define ALLOC_SIZE 4096
-
-// Function to measure time
-double get_time() {
-    struct timespec ts;
-    clock_gettime(CLOCK_MONOTONIC, &ts);
-    return ts.tv_sec + ts.tv_nsec / 1.0e9;
-}
-
-// Standard memory allocation and access
-void test_standard_memory(size_t total_size, size_t alloc_size) {
-    size_t num_allocs = total_size / alloc_size;
-    void **ptrs = malloc(num_allocs * sizeof(void*));
-    
-    if (!ptrs) {
-        perror("malloc");
-        return;
-    }
-    
-    // Allocate memory
-    for (size_t i = 0; i < num_allocs; i++) {
-        ptrs[i] = malloc(alloc_size);
-        if (!ptrs[i]) {
-            perror("malloc");
-            break;
-        }
-        
-        // Write to memory
-        memset(ptrs[i], i & 0xFF, alloc_size);
-    }
-    
-    // Read from memory
-    volatile unsigned char sum = 0;
-    for (size_t i = 0; i < num_allocs; i++) {
-        if (ptrs[i]) {
-            for (size_t j = 0; j < alloc_size; j += 64) {
-                sum += ((unsigned char*)ptrs[i])[j];
-            }
-        }
-    }
-    
-    // Free memory
-    for (size_t i = 0; i < num_allocs; i++) {
-        if (ptrs[i]) {
-            free(ptrs[i]);
-        }
-    }
-    
-    free(ptrs);
-}
-
-// MTE-enabled memory allocation and access
-void test_mte_memory(size_t total_size, size_t alloc_size) {
-    #ifdef __aarch64__
-    // Try to enable MTE
-    if (prctl(PR_SET_TAGGED_ADDR_CTRL, PR_TAGGED_ADDR_ENABLE | PR_MTE_TCF_SYNC, 0, 0, 0) == -1) {
-        perror("Failed to enable MTE");
-        return;
-    }
-    
-    size_t num_allocs = total_size / alloc_size;
-    void **ptrs = malloc(num_allocs * sizeof(void*));
-    
-    if (!ptrs) {
-        perror("malloc");
-        return;
-    }
-    
-    // Allocate memory with MTE tags
-    for (size_t i = 0; i < num_allocs; i++) {
-        // In a real MTE implementation, we would use special allocation functions
-        // that tag memory. For this benchmark, we're simulating the overhead.
-        ptrs[i] = malloc(alloc_size);
-        if (!ptrs[i]) {
-            perror("malloc");
-            break;
-        }
-        
-        // Write to memory
-        memset(ptrs[i], i & 0xFF, alloc_size);
-    }
-    
-    // Read from memory
-    volatile unsigned char sum = 0;
-    for (size_t i = 0; i < num_allocs; i++) {
-        if (ptrs[i]) {
-            for (size_t j = 0; j < alloc_size; j += 64) {
-                sum += ((unsigned char*)ptrs[i])[j];
-            }
-        }
-    }
-    
-    // Free memory
-    for (size_t i = 0; i < num_allocs; i++) {
-        if (ptrs[i]) {
-            free(ptrs[i]);
-        }
-    }
-    
-    free(ptrs);
-    #endif
-}
-
-int main() {
-    printf("Testing memory operations with and without MTE...\n");
-    
-    // Benchmark standard memory operations
-    double start = get_time();
-    
-    for (int i = 0; i < ITERATIONS; i++) {
-        test_standard_memory(BUFFER_SIZE, ALLOC_SIZE);
-    }
-    
-    double end = get_time();
-    double standard_time = end - start;
-    
-    printf("Standard memory operations time: %.6f seconds\n", standard_time);
-    
-    // Benchmark MTE memory operations
-    #ifdef __aarch64__
-    start = get_time();
-    
-    for (int i = 0; i < ITERATIONS; i++) {
-        test_mte_memory(BUFFER_SIZE, ALLOC_SIZE);
-    }
-    
-    end = get_time();
-    double mte_time = end - start;
-    
-    printf("MTE memory operations time: %.6f seconds\n", mte_time);
-    printf("MTE overhead: %.2f%%\n", ((mte_time / standard_time) - 1.0) * 100);
-    #else
-    printf("MTE not supported on this architecture\n");
-    #endif
-    
-    return 0;
-}
-```
-
-Compile with MTE support:
-
-```bash
-# See: ../2400_compiler_optimizations.md#cpu-specific-flags
-gcc -O3 -march=armv8.5-a+memtag mte_benchmark.c -o mte_benchmark
-```
-
-### Step 4: Create Memory Safety Test
-
-Create a file named `memory_safety_test.c` with the following content:
-
-```c
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <unistd.h>
-#include <sys/prctl.h>
-
-// Define constants if not available in headers
-#ifndef PR_SET_TAGGED_ADDR_CTRL
-#define PR_SET_TAGGED_ADDR_CTRL 55
-#endif
-
-#ifndef PR_TAGGED_ADDR_ENABLE
-#define PR_TAGGED_ADDR_ENABLE (1UL << 0)
-#endif
-
-#ifndef PR_MTE_TCF_SYNC
-#define PR_MTE_TCF_SYNC (1UL << 1)
-#endif
-
-// Function to enable MTE
-int enable_mte() {
-    #ifdef __aarch64__
-    return prctl(PR_SET_TAGGED_ADDR_CTRL, PR_TAGGED_ADDR_ENABLE | PR_MTE_TCF_SYNC, 0, 0, 0);
-    #else
-    return -1;
-    #endif
-}
-
-// Buffer overflow test
-void test_buffer_overflow(int use_mte) {
-    printf("Testing buffer overflow %s MTE...\n", use_mte ? "with" : "without");
-    
-    if (use_mte) {
-        if (enable_mte() == -1) {
-            perror("Failed to enable MTE");
-            return;
-        }
-    }
-    
-    // Allocate a buffer
-    char *buffer = malloc(10);
-    if (!buffer) {
-        perror("malloc");
-        return;
-    }
-    
-    // Initialize buffer
-    for (int i = 0; i < 10; i++) {
-        buffer[i] = 'A' + i;
-    }
-    
-    printf("Buffer contents before overflow: ");
-    for (int i = 0; i < 10; i++) {
-        printf("%c ", buffer[i]);
-    }
-    printf("\n");
-    
-    // Attempt buffer overflow
-    printf("Attempting buffer overflow...\n");
-    for (int i = 0; i < 20; i++) {
-        buffer[i] = 'X';  // Overflow after i=9
-        printf("Wrote to index %d\n", i);
-    }
-    
-    printf("Buffer overflow completed without detection\n");
-    
-    free(buffer);
-}
-
-// Use-after-free test
-void test_use_after_free(int use_mte) {
-    printf("Testing use-after-free %s MTE...\n", use_mte ? "with" : "without");
-    
-    if (use_mte) {
-        if (enable_mte() == -1) {
-            perror("Failed to enable MTE");
-            return;
-        }
-    }
-    
-    // Allocate a buffer
-    char *buffer = malloc(10);
-    if (!buffer) {
-        perror("malloc");
-        return;
-    }
-    
-    // Initialize buffer
-    for (int i = 0; i < 10; i++) {
-        buffer[i] = 'A' + i;
-    }
-    
-    // Free the buffer
-    free(buffer);
-    printf("Buffer freed\n");
-    
-    // Attempt use-after-free
-    printf("Attempting use-after-free...\n");
-    printf("Value at buffer[0]: %c\n", buffer[0]);  // Use after free
-    
-    printf("Use-after-free completed without detection\n");
-}
-
-int main(int argc, char *argv[]) {
-    int use_mte = 0;
-    
-    if (argc > 1 && strcmp(argv[1], "mte") == 0) {
-        use_mte = 1;
-    }
-    
-    // Run tests
-    test_buffer_overflow(use_mte);
-    printf("\n");
-    test_use_after_free(use_mte);
-    
-    return 0;
-}
-```
-
-Compile with MTE support:
-
-```bash
-gcc -O3 -march=armv8.5-a+memtag memory_safety_test.c -o memory_safety_test
-```
-
-### Step 5: Create Benchmark Script
-
-Create a file named `run_mte_benchmark.sh` with the following content:
-
-```bash
-#!/bin/bash
-
-# Get architecture
-arch=$(uname -m)
-echo "Architecture: $arch"
-echo "CPU: $(lscpu | grep 'Model name' | cut -d: -f2 | xargs)"
-
-# Check MTE support
-echo "Checking MTE support..."
-./check_mte
-
-# Run MTE benchmark
-echo "Running MTE benchmark..."
-./mte_benchmark | tee mte_benchmark_results.txt
-
-# Run memory safety tests
-echo "Running memory safety tests without MTE..."
-./memory_safety_test | tee memory_safety_standard.txt
-
-echo "Running memory safety tests with MTE..."
-./memory_safety_test mte | tee memory_safety_mte.txt
-
-echo "Benchmark complete. Results saved to text files."
-```
-
-Make the script executable:
-
-```bash
-chmod +x run_mte_benchmark.sh
 ```
 
 ### Step 6: Run the Benchmark
@@ -467,149 +118,6 @@ Arm architectures offer several optimization techniques to improve memory safety
 ### 1. Optimized MTE Implementation
 
 Create a file named `mte_optimized.c`:
-
-```c
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <time.h>
-#include <unistd.h>
-#include <sys/mman.h>
-
-#define BUFFER_SIZE 1024
-#define ITERATIONS 1000000
-
-// Function to measure time
-double get_time() {
-    struct timespec ts;
-    clock_gettime(CLOCK_MONOTONIC, &ts);
-    return ts.tv_sec + ts.tv_nsec / 1.0e9;
-}
-
-#ifdef __aarch64__
-// Create a tagged pointer (simplified simulation)
-void* create_tagged_pointer(void* ptr, unsigned tag) {
-    // In real MTE, this would use special instructions
-    // This is just a simulation for the benchmark
-    uintptr_t addr = (uintptr_t)ptr;
-    addr = (addr & 0x0000FFFFFFFFFFFF) | ((uintptr_t)(tag & 0xF) << 56);
-    return (void*)addr;
-}
-
-// Extract the tag from a pointer
-unsigned get_tag(void* ptr) {
-    return (unsigned)((uintptr_t)ptr >> 56) & 0xF;
-}
-#endif
-
-// Standard memory access
-void standard_access(char* buffer, size_t size) {
-    for (size_t i = 0; i < size; i++) {
-        buffer[i] = (char)i;
-    }
-    
-    volatile char sum = 0;
-    for (size_t i = 0; i < size; i++) {
-        sum += buffer[i];
-    }
-}
-
-// MTE-aware memory access (simulated)
-void mte_access(char* buffer, size_t size) {
-#ifdef __aarch64__
-    // Tag the buffer (simulation)
-    unsigned tag = 1;
-    void* tagged_buffer = create_tagged_pointer(buffer, tag);
-    char* safe_buffer = (char*)tagged_buffer;
-    
-    // Access with tag checking (simulation)
-    for (size_t i = 0; i < size; i++) {
-        // In real MTE, hardware would check tags automatically
-        if (get_tag(safe_buffer) == tag) {
-            safe_buffer[i] = (char)i;
-        }
-    }
-    
-    volatile char sum = 0;
-    for (size_t i = 0; i < size; i++) {
-        if (get_tag(safe_buffer) == tag) {
-            sum += safe_buffer[i];
-        }
-    }
-#else
-    standard_access(buffer, size);
-#endif
-}
-
-// Optimized MTE access with batching
-void mte_optimized_access(char* buffer, size_t size) {
-#ifdef __aarch64__
-    // Tag the buffer (simulation)
-    unsigned tag = 1;
-    void* tagged_buffer = create_tagged_pointer(buffer, tag);
-    char* safe_buffer = (char*)tagged_buffer;
-    
-    // Check tag once for the whole buffer
-    if (get_tag(safe_buffer) == tag) {
-        // Batch operations
-        for (size_t i = 0; i < size; i++) {
-            safe_buffer[i] = (char)i;
-        }
-        
-        volatile char sum = 0;
-        for (size_t i = 0; i < size; i++) {
-            sum += safe_buffer[i];
-        }
-    }
-#else
-    standard_access(buffer, size);
-#endif
-}
-
-int main() {
-    // Allocate buffer
-    char* buffer = (char*)malloc(BUFFER_SIZE);
-    if (!buffer) {
-        perror("malloc");
-        return 1;
-    }
-    
-    // Benchmark standard access
-    double start = get_time();
-    for (int i = 0; i < ITERATIONS; i++) {
-        standard_access(buffer, BUFFER_SIZE);
-    }
-    double end = get_time();
-    double standard_time = end - start;
-    
-    printf("Standard access time: %.6f seconds\n", standard_time);
-    
-    // Benchmark MTE access
-    start = get_time();
-    for (int i = 0; i < ITERATIONS; i++) {
-        mte_access(buffer, BUFFER_SIZE);
-    }
-    end = get_time();
-    double mte_time = end - start;
-    
-    printf("MTE access time: %.6f seconds\n", mte_time);
-    printf("MTE overhead: %.2f%%\n", ((mte_time / standard_time) - 1.0) * 100);
-    
-    // Benchmark optimized MTE access
-    start = get_time();
-    for (int i = 0; i < ITERATIONS; i++) {
-        mte_optimized_access(buffer, BUFFER_SIZE);
-    }
-    end = get_time();
-    double mte_opt_time = end - start;
-    
-    printf("Optimized MTE access time: %.6f seconds\n", mte_opt_time);
-    printf("Optimized MTE overhead: %.2f%%\n", ((mte_opt_time / standard_time) - 1.0) * 100);
-    
-    free(buffer);
-    return 0;
-}
-```
 
 Compile with:
 
@@ -759,42 +267,6 @@ sudo reboot
 
 Apply MTE only to security-critical allocations to minimize overhead:
 
-```c
-#include <stdlib.h>
-#include <sys/mman.h>
-#include <sys/prctl.h>
-
-// Define constants if not available
-#ifndef PROT_MTE
-#define PROT_MTE 0x20
-#endif
-
-#ifndef PR_SET_TAGGED_ADDR_CTRL
-#define PR_SET_TAGGED_ADDR_CTRL 55
-#endif
-
-#ifndef PR_TAGGED_ADDR_ENABLE
-#define PR_TAGGED_ADDR_ENABLE (1UL << 0)
-#endif
-
-// Allocate memory with MTE protection
-void* secure_malloc(size_t size) {
-    // Enable MTE for this thread
-    prctl(PR_SET_TAGGED_ADDR_CTRL, PR_TAGGED_ADDR_ENABLE, 0, 0, 0);
-    
-    // Allocate memory with MTE protection
-    void* ptr = mmap(NULL, size, PROT_READ | PROT_WRITE | PROT_MTE,
-                     MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
-    
-    return ptr;
-}
-
-// Standard allocation for non-critical data
-void* standard_malloc(size_t size) {
-    return malloc(size);
-}
-```
-
 ### 2. Batch Tag Operations
 
 Group tag operations to reduce overhead:
@@ -817,58 +289,6 @@ void tag_memory_batch(void** ptrs, size_t count) {
 ### 3. Custom Memory Allocator with MTE
 
 Implement a custom allocator that efficiently uses MTE:
-
-```c
-#include <stdlib.h>
-#include <sys/mman.h>
-
-#define CHUNK_SIZE 4096
-#define MAX_ALLOCS 1024
-
-typedef struct {
-    void* chunks[MAX_ALLOCS];
-    size_t sizes[MAX_ALLOCS];
-    int count;
-} mte_allocator_t;
-
-// Initialize allocator
-void mte_allocator_init(mte_allocator_t* allocator) {
-    allocator->count = 0;
-}
-
-// Allocate memory with MTE
-void* mte_allocator_alloc(mte_allocator_t* allocator, size_t size) {
-    if (allocator->count >= MAX_ALLOCS) {
-        return NULL;
-    }
-    
-    // Round up to chunk size
-    size_t alloc_size = (size + CHUNK_SIZE - 1) & ~(CHUNK_SIZE - 1);
-    
-    // Allocate memory with MTE protection
-    void* ptr = mmap(NULL, alloc_size, PROT_READ | PROT_WRITE | PROT_MTE,
-                     MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
-    
-    if (ptr == MAP_FAILED) {
-        return NULL;
-    }
-    
-    // Store allocation
-    allocator->chunks[allocator->count] = ptr;
-    allocator->sizes[allocator->count] = alloc_size;
-    allocator->count++;
-    
-    return ptr;
-}
-
-// Free all memory
-void mte_allocator_destroy(mte_allocator_t* allocator) {
-    for (int i = 0; i < allocator->count; i++) {
-        munmap(allocator->chunks[i], allocator->sizes[i]);
-    }
-    allocator->count = 0;
-}
-```
 
 These tweaks can help balance security and performance when using MTE on Neoverse V1/N2 processors, with potential overhead reduction of 30-50% compared to naive MTE implementations.
 

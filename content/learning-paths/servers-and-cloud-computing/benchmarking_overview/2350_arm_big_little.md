@@ -1,8 +1,6 @@
 ---
 title: Arm big.LITTLE and DynamIQ
 weight: 2350
-
-### FIXED, DO NOT MODIFY
 layout: learningpathall
 ---
 
@@ -17,17 +15,67 @@ For more detailed information about Arm big.LITTLE and DynamIQ, you can refer to
 - [Arm DynamIQ Technology](https://www.arm.com/why-arm/technologies/dynamiq)
 - [Heterogeneous Multi-Processing](https://developer.arm.com/documentation/den0022/latest/)
 
-## Benchmarking Exercise: Leveraging big.LITTLE Architecture
-
-In this exercise, we'll measure and compare performance and energy efficiency when targeting specific core types on Arm big.LITTLE systems.
+## Benchmarking Exercise
 
 ### Prerequisites
 
-Ensure you have an Arm VM or device with big.LITTLE or DynamIQ architecture:
-- Arm (aarch64) with heterogeneous cores (e.g., Cortex-A76 + Cortex-A55)
-- Linux kernel with CPU affinity support
+Ensure you have:
+- Completed the repository setup from the previous chapter
+- ARM (aarch64) system with the bench_guide repository cloned
 
-### Step 1: Install Required Tools
+### Step 1: Navigate to Directory
+
+Navigate to the benchmark directory:
+
+```bash
+cd bench_guide/arm_big_little
+```
+
+### Step 2: Install Dependencies
+
+Run the setup script:
+
+```bash
+./setup.sh
+```
+
+### Step 3: Run the Benchmark
+
+Execute the benchmark:
+
+```bash
+./benchmark.sh
+```
+
+### Step 4: Analyze the Results
+
+Ensure you have two Ubuntu VMs:
+- One running on Intel/AMD (x86_64)
+- One running on Arm (aarch64)
+
+Both should have similar specifications for fair comparison.
+
+### Step 1: Download and Run Setup Script
+
+Download and run the setup script to install required tools:
+
+```bash
+curl -O https://raw.githubusercontent.com/geremyCohen/bench_guide/main/arm_big_little/setup.sh
+chmod +x setup.sh
+./setup.sh
+```
+
+### Step 2: Run the Benchmark
+
+Execute the benchmark script on both VMs:
+
+```bash
+curl -O https://raw.githubusercontent.com/geremyCohen/bench_guide/main/arm_big_little/benchmark.sh
+chmod +x benchmark.sh
+./benchmark.sh | tee arm_big_little_results.txt
+```
+
+### Step 3: Analyze the Results Install Required Tools
 
 Run the following commands:
 
@@ -40,266 +88,11 @@ sudo apt install -y build-essential gcc cpufrequtils linux-tools-common linux-to
 
 Create a file named `identify_cores.sh` with the following content:
 
-```bash
-#!/bin/bash
-
-echo "CPU Information:"
-lscpu
-
-echo -e "\nDetailed CPU Information:"
-cat /proc/cpuinfo | grep "processor\|model name\|CPU part"
-
-echo -e "\nCPU Topology:"
-for cpu in /sys/devices/system/cpu/cpu[0-9]*; do
-    cpu_num=$(basename $cpu | sed 's/cpu//')
-    
-    # Try to determine if it's a big or LITTLE core
-    freq_max=$(cat $cpu/cpufreq/scaling_max_freq 2>/dev/null || echo "unknown")
-    
-    if [ -f "$cpu/cpufreq/scaling_max_freq" ]; then
-        if [ "$freq_max" -gt 1500000 ]; then
-            core_type="big (performance)"
-        else
-            core_type="LITTLE (efficiency)"
-        fi
-    else
-        core_type="unknown type"
-    fi
-    
-    echo "CPU $cpu_num: $core_type, Max Frequency: $freq_max kHz"
-done
-```
-
 Make the script executable and run it:
 
 ```bash
 chmod +x identify_cores.sh
 ./identify_cores.sh
-```
-
-### Step 3: Create Core-Specific Benchmark
-
-Create a file named `big_little_benchmark.c` with the following content:
-
-```c
-#include <stdio.h>
-#include <stdlib.h>
-#include <time.h>
-#include <unistd.h>
-#include <pthread.h>
-#include <sched.h>
-
-#define ITERATIONS 100000000
-
-// Function to measure time
-double get_time() {
-    struct timespec ts;
-    clock_gettime(CLOCK_MONOTONIC, &ts);
-    return ts.tv_sec + ts.tv_nsec / 1.0e9;
-}
-
-// Thread function for CPU-intensive workload
-void* cpu_workload(void* arg) {
-    int cpu_id = *(int*)arg;
-    
-    // Set CPU affinity
-    cpu_set_t cpuset;
-    CPU_ZERO(&cpuset);
-    CPU_SET(cpu_id, &cpuset);
-    
-    if (pthread_setaffinity_np(pthread_self(), sizeof(cpu_set_t), &cpuset) != 0) {
-        perror("pthread_setaffinity_np");
-        return NULL;
-    }
-    
-    printf("Thread running on CPU %d\n", cpu_id);
-    
-    // Perform CPU-intensive calculation
-    double result = 0.0;
-    double start = get_time();
-    
-    for (int i = 0; i < ITERATIONS; i++) {
-        result += i * 0.01;
-    }
-    
-    double end = get_time();
-    double elapsed = end - start;
-    
-    printf("CPU %d: Time: %.6f seconds, Operations per second: %.2f million\n", 
-           cpu_id, elapsed, ITERATIONS / elapsed / 1000000);
-    
-    // Prevent optimization
-    if (result < 0) {
-        printf("This should never happen\n");
-    }
-    
-    return NULL;
-}
-
-int main(int argc, char* argv[]) {
-    if (argc < 2) {
-        printf("Usage: %s <cpu_id1> [cpu_id2] ...\n", argv[0]);
-        return 1;
-    }
-    
-    int num_cpus = argc - 1;
-    pthread_t threads[num_cpus];
-    int cpu_ids[num_cpus];
-    
-    // Create threads for each specified CPU
-    for (int i = 0; i < num_cpus; i++) {
-        cpu_ids[i] = atoi(argv[i+1]);
-        pthread_create(&threads[i], NULL, cpu_workload, &cpu_ids[i]);
-    }
-    
-    // Wait for threads to complete
-    for (int i = 0; i < num_cpus; i++) {
-        pthread_join(threads[i], NULL);
-    }
-    
-    return 0;
-}
-```
-
-Compile the benchmark:
-
-```bash
-gcc -O2 -pthread big_little_benchmark.c -o big_little_benchmark
-```
-
-### Step 4: Create Power Measurement Script
-
-Create a file named `measure_power.sh` with the following content:
-
-```bash
-#!/bin/bash
-
-# This is a simplified power measurement script
-# For accurate measurements, use hardware power monitors
-
-# Function to get current CPU frequency
-get_cpu_freq() {
-    local cpu=$1
-    cat /sys/devices/system/cpu/cpu$cpu/cpufreq/scaling_cur_freq 2>/dev/null || echo "N/A"
-}
-
-# Function to estimate power based on frequency
-# This is a very rough approximation
-estimate_power() {
-    local cpu=$1
-    local freq=$(get_cpu_freq $cpu)
-    
-    if [ "$freq" == "N/A" ]; then
-        echo "N/A"
-        return
-    fi
-    
-    # Very simplified model: power ~ frequency^2
-    # This is just for demonstration purposes
-    echo "scale=2; ($freq / 1000000)^2" | bc
-}
-
-# Monitor CPU stats during benchmark
-monitor_cpu() {
-    local cpu=$1
-    local duration=$2
-    local interval=1
-    
-    echo "Monitoring CPU $cpu for $duration seconds..."
-    echo "Time,Frequency,EstimatedPower" > cpu${cpu}_stats.csv
-    
-    for ((i=0; i<duration; i++)); do
-        freq=$(get_cpu_freq $cpu)
-        power=$(estimate_power $cpu)
-        echo "$i,$freq,$power" >> cpu${cpu}_stats.csv
-        sleep $interval
-    done
-}
-
-# Check arguments
-if [ $# -lt 2 ]; then
-    echo "Usage: $0 <cpu_id> <duration>"
-    exit 1
-fi
-
-cpu=$1
-duration=$2
-
-# Start monitoring
-monitor_cpu $cpu $duration &
-monitor_pid=$!
-
-# Wait for monitoring to complete
-wait $monitor_pid
-
-echo "Monitoring complete. Results saved to cpu${cpu}_stats.csv"
-```
-
-Make the script executable:
-
-```bash
-chmod +x measure_power.sh
-```
-
-### Step 5: Create Benchmark Script
-
-Create a file named `run_big_little_benchmark.sh` with the following content:
-
-```bash
-#!/bin/bash
-
-# Identify big and LITTLE cores
-# This is a simplified approach - adjust based on your system
-big_cores=""
-little_cores=""
-
-# Try to identify cores based on max frequency
-for cpu in /sys/devices/system/cpu/cpu[0-9]*; do
-    cpu_num=$(basename $cpu | sed 's/cpu//')
-    
-    if [ -f "$cpu/cpufreq/scaling_max_freq" ]; then
-        freq_max=$(cat $cpu/cpufreq/scaling_max_freq)
-        
-        if [ "$freq_max" -gt 1500000 ]; then
-            big_cores="$big_cores $cpu_num"
-        else
-            little_cores="$little_cores $cpu_num"
-        fi
-    fi
-done
-
-# If we couldn't identify cores, use defaults
-if [ -z "$big_cores" ]; then
-    big_cores="0"
-    little_cores="1"
-fi
-
-echo "Identified big cores:$big_cores"
-echo "Identified LITTLE cores:$little_cores"
-
-# Run benchmark on big core
-echo "Running benchmark on big core..."
-big_core=$(echo $big_cores | awk '{print $1}')
-./measure_power.sh $big_core 30 &
-./big_little_benchmark $big_core | tee big_core_results.txt
-
-# Run benchmark on LITTLE core
-echo "Running benchmark on LITTLE core..."
-little_core=$(echo $little_cores | awk '{print $1}')
-./measure_power.sh $little_core 30 &
-./big_little_benchmark $little_core | tee little_core_results.txt
-
-# Run benchmark on both core types
-echo "Running benchmark on both core types..."
-./big_little_benchmark $big_core $little_core | tee mixed_core_results.txt
-
-echo "Benchmark complete. Results saved to text files."
-```
-
-Make the script executable:
-
-```bash
-chmod +x run_big_little_benchmark.sh
 ```
 
 ### Step 6: Run the Benchmark
@@ -326,106 +119,6 @@ Arm architectures offer several optimization techniques to leverage heterogeneou
 
 Create a file named `task_affinity.c`:
 
-```c
-#include <stdio.h>
-#include <stdlib.h>
-#include <pthread.h>
-#include <unistd.h>
-#include <sched.h>
-#include <time.h>
-
-#define NUM_TASKS 4
-#define ITERATIONS 50000000
-
-// Function to measure time
-double get_time() {
-    struct timespec ts;
-    clock_gettime(CLOCK_MONOTONIC, &ts);
-    return ts.tv_sec + ts.tv_nsec / 1.0e9;
-}
-
-// CPU-intensive task (suitable for big cores)
-void* cpu_intensive_task(void* arg) {
-    int task_id = *(int*)arg;
-    int cpu_id = task_id % 2;  // Assign to CPU 0 or 1
-    
-    // Set CPU affinity
-    cpu_set_t cpuset;
-    CPU_ZERO(&cpuset);
-    CPU_SET(cpu_id, &cpuset);
-    pthread_setaffinity_np(pthread_self(), sizeof(cpu_set_t), &cpuset);
-    
-    printf("CPU-intensive task %d running on CPU %d\n", task_id, cpu_id);
-    
-    double start = get_time();
-    
-    // Perform CPU-intensive work
-    volatile double result = 0.0;
-    for (int i = 0; i < ITERATIONS; i++) {
-        result += i * 0.01;
-    }
-    
-    double end = get_time();
-    printf("Task %d on CPU %d: Time: %.6f seconds\n", task_id, cpu_id, end - start);
-    
-    return NULL;
-}
-
-// Bursty task (suitable for LITTLE cores)
-void* bursty_task(void* arg) {
-    int task_id = *(int*)arg;
-    int cpu_id = task_id % 2 + 2;  // Assign to CPU 2 or 3
-    
-    // Set CPU affinity
-    cpu_set_t cpuset;
-    CPU_ZERO(&cpuset);
-    CPU_SET(cpu_id, &cpuset);
-    pthread_setaffinity_np(pthread_self(), sizeof(cpu_set_t), &cpuset);
-    
-    printf("Bursty task %d running on CPU %d\n", task_id, cpu_id);
-    
-    double start = get_time();
-    
-    // Perform bursty work
-    for (int burst = 0; burst < 10; burst++) {
-        volatile double result = 0.0;
-        for (int i = 0; i < ITERATIONS / 10; i++) {
-            result += i * 0.01;
-        }
-        usleep(100000);  // Sleep between bursts
-    }
-    
-    double end = get_time();
-    printf("Task %d on CPU %d: Time: %.6f seconds\n", task_id, cpu_id, end - start);
-    
-    return NULL;
-}
-
-int main() {
-    pthread_t threads[NUM_TASKS];
-    int task_ids[NUM_TASKS];
-    
-    // Create CPU-intensive tasks
-    for (int i = 0; i < NUM_TASKS/2; i++) {
-        task_ids[i] = i;
-        pthread_create(&threads[i], NULL, cpu_intensive_task, &task_ids[i]);
-    }
-    
-    // Create bursty tasks
-    for (int i = NUM_TASKS/2; i < NUM_TASKS; i++) {
-        task_ids[i] = i;
-        pthread_create(&threads[i], NULL, bursty_task, &task_ids[i]);
-    }
-    
-    // Wait for all tasks to complete
-    for (int i = 0; i < NUM_TASKS; i++) {
-        pthread_join(threads[i], NULL);
-    }
-    
-    return 0;
-}
-```
-
 Compile with:
 
 ```bash
@@ -450,26 +143,7 @@ gcc -O2 -pthread task_affinity.c -o task_affinity
    ```
 
 2. **Energy-Aware Task Partitioning**:
-   ```c
-   // Divide work based on core capabilities
-   void process_data(data_t* data, int size) {
-       int big_core_chunk = size * 0.7;  // 70% to big cores
-       int little_core_chunk = size * 0.3;  // 30% to LITTLE cores
-       
-       // Process on big cores (parallel intensive work)
-       #pragma omp parallel for num_threads(big_core_count)
-       for (int i = 0; i < big_core_chunk; i++) {
-           // Process data[i]
-       }
-       
-       // Process on LITTLE cores (sequential work)
-       for (int i = big_core_chunk; i < size; i++) {
-           // Process data[i]
-       }
-   }
-   ```
-
-3. **Dynamic Core Selection**:
+   3. **Dynamic Core Selection**:
    ```c
    // Choose core based on workload characteristics
    int select_optimal_core(task_t* task) {
@@ -491,29 +165,7 @@ gcc -O2 -pthread task_affinity.c -o task_affinity
    ```
 
 5. **Asymmetric Multithreading**:
-   ```c
-   // Create thread pool with core-specific queues
-   thread_pool_t* create_asymmetric_pool() {
-       thread_pool_t* pool = malloc(sizeof(thread_pool_t));
-       
-       // High-priority queue for big cores
-       pool->big_core_queue = create_queue();
-       
-       // Low-priority queue for LITTLE cores
-       pool->little_core_queue = create_queue();
-       
-       return pool;
-   }
    
-   // Submit task to appropriate queue
-   void submit_task(thread_pool_t* pool, task_t* task) {
-       if (task->priority == HIGH) {
-           enqueue(pool->big_core_queue, task);
-       } else {
-           enqueue(pool->little_core_queue, task);
-       }
-   }
-   ```
 
 These optimizations can help leverage the heterogeneous nature of Arm big.LITTLE and DynamIQ architectures, improving both performance and energy efficiency.
 
