@@ -1,8 +1,6 @@
 ---
 title: Energy Efficiency Under Different Workloads
 weight: 2000
-
-### FIXED, DO NOT MODIFY
 layout: learningpathall
 ---
 
@@ -17,11 +15,73 @@ For more detailed information about energy efficiency in computing, you can refe
 - [Power Management in Modern Processors](https://www.anandtech.com/show/14514/examining-intel-ice-lake-microarchitecture-power)
 - [Arm Energy Efficiency](https://www.arm.com/why-arm/power-efficiency)
 
-## Benchmarking Exercise: Comparing Energy Efficiency Across Workloads
-
-In this exercise, we'll measure and compare energy efficiency across Intel/AMD and Arm architectures under different types of workloads.
+## Benchmarking Exercise
 
 ### Prerequisites
+
+Ensure you have:
+- Completed the repository setup from the previous chapter
+- Two Ubuntu systems with the bench_guide repository cloned
+
+### Step 1: Navigate to Directory
+
+Navigate to the benchmark directory:
+
+```bash
+cd bench_guide/energy_efficiency
+```
+
+### Step 2: Install Dependencies
+
+Run the setup script:
+
+```bash
+./setup.sh
+```
+
+### Step 3: Run the Benchmark
+
+Execute the benchmark:
+
+```bash
+./benchmark.sh
+```
+
+### Step 4: Analyze the Results
+
+Compare the results from both architectures, focusing on the key performance metrics displayed by the benchmark.
+
+## Prerequisites
+
+Ensure you have:
+- Completed the repository setup from the previous chapter
+- Two Ubuntu systems with the bench_guide repository cloned
+
+### Step 1: Navigate to Directory
+
+Navigate to the benchmark directory:
+
+```bash
+cd bench_guide/energy_efficiency
+```
+
+### Step 2: Install Dependencies
+
+Run the setup script:
+
+```bash
+./setup.sh
+```
+
+### Step 3: Run the Benchmark
+
+Execute the benchmark:
+
+```bash
+./benchmark.sh
+```
+
+### Step 4: Analyze the Results
 
 Ensure you have two Ubuntu VMs:
 - One running on Intel/AMD (x86_64)
@@ -41,409 +101,6 @@ sudo apt install -y build-essential stress-ng cpupower-utils linux-tools-common 
 ### Step 2: Create Workload Scripts
 
 Create a file named `cpu_workload.c` with the following content:
-
-```c
-#include <stdio.h>
-#include <stdlib.h>
-#include <time.h>
-#include <unistd.h>
-#include <pthread.h>
-
-#define NUM_THREADS 4
-#define DURATION 30  // seconds
-
-// Function to measure time
-double get_time() {
-    struct timespec ts;
-    clock_gettime(CLOCK_MONOTONIC, &ts);
-    return ts.tv_sec + ts.tv_nsec / 1.0e9;
-}
-
-// CPU-intensive workload
-void* cpu_intensive(void* arg) {
-    int thread_id = *(int*)arg;
-    double start_time = get_time();
-    double end_time = start_time + DURATION;
-    uint64_t operations = 0;
-    
-    printf("Thread %d started\n", thread_id);
-    
-    while (get_time() < end_time) {
-        // Perform compute-intensive operations
-        double result = 0.0;
-        for (int i = 0; i < 1000000; i++) {
-            result += i * 1.1;
-        }
-        operations++;
-        
-        // Prevent compiler from optimizing away the calculation
-        if (result < 0) {
-            printf("This should never happen\n");
-        }
-    }
-    
-    printf("Thread %d completed %lu operations\n", thread_id, operations);
-    
-    // Return operations count
-    uint64_t* ops = malloc(sizeof(uint64_t));
-    *ops = operations;
-    return ops;
-}
-
-// Memory-intensive workload
-void* memory_intensive(void* arg) {
-    int thread_id = *(int*)arg;
-    double start_time = get_time();
-    double end_time = start_time + DURATION;
-    uint64_t operations = 0;
-    
-    // Allocate a large array (100MB)
-    const size_t array_size = 100 * 1024 * 1024 / sizeof(int);
-    int* array = (int*)malloc(array_size * sizeof(int));
-    if (!array) {
-        perror("malloc");
-        return NULL;
-    }
-    
-    printf("Thread %d started\n", thread_id);
-    
-    while (get_time() < end_time) {
-        // Perform memory-intensive operations
-        for (size_t i = 0; i < array_size; i++) {
-            array[i] = i;
-        }
-        
-        int sum = 0;
-        for (size_t i = 0; i < array_size; i++) {
-            sum += array[i];
-        }
-        operations++;
-        
-        // Prevent compiler from optimizing away the calculation
-        if (sum < 0) {
-            printf("This should never happen\n");
-        }
-    }
-    
-    free(array);
-    printf("Thread %d completed %lu operations\n", thread_id, operations);
-    
-    // Return operations count
-    uint64_t* ops = malloc(sizeof(uint64_t));
-    *ops = operations;
-    return ops;
-}
-
-// Mixed workload
-void* mixed_workload(void* arg) {
-    int thread_id = *(int*)arg;
-    double start_time = get_time();
-    double end_time = start_time + DURATION;
-    uint64_t operations = 0;
-    
-    // Allocate a medium-sized array (10MB)
-    const size_t array_size = 10 * 1024 * 1024 / sizeof(int);
-    int* array = (int*)malloc(array_size * sizeof(int));
-    if (!array) {
-        perror("malloc");
-        return NULL;
-    }
-    
-    printf("Thread %d started\n", thread_id);
-    
-    while (get_time() < end_time) {
-        // Alternate between CPU and memory operations
-        double result = 0.0;
-        for (int i = 0; i < 100000; i++) {
-            result += i * 1.1;
-        }
-        
-        for (size_t i = 0; i < array_size / 10; i++) {
-            array[i] = i;
-            result += array[i];
-        }
-        
-        operations++;
-        
-        // Prevent compiler from optimizing away the calculation
-        if (result < 0) {
-            printf("This should never happen\n");
-        }
-    }
-    
-    free(array);
-    printf("Thread %d completed %lu operations\n", thread_id, operations);
-    
-    // Return operations count
-    uint64_t* ops = malloc(sizeof(uint64_t));
-    *ops = operations;
-    return ops;
-}
-
-// Idle workload with periodic spikes
-void* bursty_workload(void* arg) {
-    int thread_id = *(int*)arg;
-    double start_time = get_time();
-    double end_time = start_time + DURATION;
-    uint64_t operations = 0;
-    
-    printf("Thread %d started\n", thread_id);
-    
-    while (get_time() < end_time) {
-        // Burst of activity (20% of the time)
-        double burst_end = get_time() + 0.2;
-        while (get_time() < burst_end) {
-            double result = 0.0;
-            for (int i = 0; i < 1000000; i++) {
-                result += i * 1.1;
-            }
-            operations++;
-            
-            // Prevent compiler from optimizing away the calculation
-            if (result < 0) {
-                printf("This should never happen\n");
-            }
-        }
-        
-        // Idle period (80% of the time)
-        usleep(800000);  // 800ms
-    }
-    
-    printf("Thread %d completed %lu operations\n", thread_id, operations);
-    
-    // Return operations count
-    uint64_t* ops = malloc(sizeof(uint64_t));
-    *ops = operations;
-    return ops;
-}
-
-int main(int argc, char* argv[]) {
-    if (argc < 2) {
-        printf("Usage: %s <workload_type>\n", argv[0]);
-        printf("  1: CPU-intensive\n");
-        printf("  2: Memory-intensive\n");
-        printf("  3: Mixed\n");
-        printf("  4: Bursty\n");
-        return 1;
-    }
-    
-    int workload_type = atoi(argv[1]);
-    pthread_t threads[NUM_THREADS];
-    int thread_ids[NUM_THREADS];
-    
-    printf("CPU Architecture: %s\n", 
-        #ifdef __x86_64__
-        "x86_64"
-        #elif defined(__aarch64__)
-        "aarch64"
-        #else
-        "unknown"
-        #endif
-    );
-    
-    printf("Starting %d threads with workload type %d for %d seconds\n", 
-           NUM_THREADS, workload_type, DURATION);
-    
-    // Create threads
-    for (int i = 0; i < NUM_THREADS; i++) {
-        thread_ids[i] = i;
-        
-        switch (workload_type) {
-            case 1:
-                pthread_create(&threads[i], NULL, cpu_intensive, &thread_ids[i]);
-                break;
-            case 2:
-                pthread_create(&threads[i], NULL, memory_intensive, &thread_ids[i]);
-                break;
-            case 3:
-                pthread_create(&threads[i], NULL, mixed_workload, &thread_ids[i]);
-                break;
-            case 4:
-                pthread_create(&threads[i], NULL, bursty_workload, &thread_ids[i]);
-                break;
-            default:
-                printf("Invalid workload type\n");
-                return 1;
-        }
-    }
-    
-    // Wait for threads to complete
-    uint64_t total_operations = 0;
-    for (int i = 0; i < NUM_THREADS; i++) {
-        uint64_t* thread_ops;
-        pthread_join(threads[i], (void**)&thread_ops);
-        total_operations += *thread_ops;
-        free(thread_ops);
-    }
-    
-    printf("Total operations completed: %lu\n", total_operations);
-    printf("Operations per second: %.2f\n", (double)total_operations / DURATION);
-    
-    return 0;
-}
-```
-
-### Step 3: Create Energy Measurement Script
-
-Create a file named `measure_energy.sh` with the following content:
-
-```bash
-#!/bin/bash
-
-# Function to get architecture
-get_arch() {
-  arch=$(uname -m)
-  if [[ "$arch" == "x86_64" ]]; then
-    echo "Intel/AMD (x86_64)"
-  elif [[ "$arch" == "aarch64" ]]; then
-    echo "Arm (aarch64)"
-  else
-    echo "Unknown architecture: $arch"
-  fi
-}
-
-# Function to measure power consumption
-measure_power() {
-  local workload=$1
-  
-  # Try different methods to measure power
-  if [ -d "/sys/class/powercap/intel-rapl" ]; then
-    echo "Using Intel RAPL for power measurement..."
-    
-    # Read initial energy values
-    initial_values=()
-    domains=()
-    for domain in /sys/class/powercap/intel-rapl/intel-rapl:*; do
-      if [ -f "$domain/energy_uj" ]; then
-        initial_values+=("$(cat $domain/energy_uj)")
-        domains+=("$domain")
-      fi
-    done
-    
-    # Run the workload
-    ./cpu_workload $workload
-    
-    # Read final energy values and calculate power
-    echo "Power consumption:"
-    local i=0
-    total_energy_joules=0
-    for domain in "${domains[@]}"; do
-      if [ -f "$domain/energy_uj" ]; then
-        local final_value=$(cat $domain/energy_uj)
-        local domain_name=$(cat $domain/name)
-        local energy_joules=$(( (final_value - ${initial_values[$i]}) / 1000000 ))
-        local power_watts=$(echo "scale=2; $energy_joules / 30" | bc)
-        echo "$domain_name: $power_watts watts"
-        total_energy_joules=$((total_energy_joules + energy_joules))
-        i=$((i+1))
-      fi
-    done
-    
-    echo "Total energy: $total_energy_joules joules"
-    
-  elif [ -d "/sys/devices/system/cpu/cpu0/cpufreq" ]; then
-    echo "Using CPU frequency scaling for power estimation..."
-    
-    # Get initial timestamp and frequency
-    initial_time=$(date +%s)
-    initial_freqs=()
-    for cpu in /sys/devices/system/cpu/cpu*/cpufreq/scaling_cur_freq; do
-      if [ -f "$cpu" ]; then
-        initial_freqs+=("$(cat $cpu)")
-      fi
-    done
-    
-    # Run the workload
-    ./cpu_workload $workload
-    
-    # Calculate estimated power based on frequency
-    local final_time=$(date +%s)
-    local actual_duration=$((final_time - initial_time))
-    
-    echo "Estimated power consumption over $actual_duration seconds:"
-    local total_freq_ghz=0
-    local i=0
-    
-    for cpu in /sys/devices/system/cpu/cpu*/cpufreq/scaling_cur_freq; do
-      if [ -f "$cpu" ] && [ $i -lt ${#initial_freqs[@]} ]; then
-        local final_freq=$(cat $cpu)
-        local avg_freq=$(( (final_freq + ${initial_freqs[$i]}) / 2 ))
-        local freq_ghz=$(echo "scale=3; $avg_freq / 1000000" | bc)
-        total_freq_ghz=$(echo "scale=3; $total_freq_ghz + $freq_ghz" | bc)
-        i=$((i+1))
-      fi
-    done
-    
-    # Rough estimation based on frequency
-    # This is a very simplified model and not accurate
-    local estimated_power=$(echo "scale=2; $total_freq_ghz * 5" | bc)
-    echo "Estimated total CPU power: $estimated_power watts (rough approximation)"
-    
-  else
-    echo "No power measurement capability detected"
-    
-    # Just run the workload
-    ./cpu_workload $workload
-  fi
-}
-
-# Display system information
-echo "=== System Information ==="
-echo "Architecture: $(get_arch)"
-echo "CPU Model:"
-lscpu | grep "Model name"
-echo "CPU Cores: $(nproc)"
-echo ""
-
-# Compile the workload program
-gcc -O2 -pthread cpu_workload.c -o cpu_workload
-
-# Initialize results file
-echo "workload,operations,ops_per_second,energy_joules,ops_per_joule" > energy_results.csv
-
-# Run different workloads
-for workload in 1 2 3 4; do
-  case $workload in
-    1) name="CPU-intensive" ;;
-    2) name="Memory-intensive" ;;
-    3) name="Mixed" ;;
-    4) name="Bursty" ;;
-  esac
-  
-  echo "=== Running $name workload ==="
-  
-  # Measure power and run workload
-  measure_power $workload | tee ${name// /_}_results.txt
-  
-  # Extract results
-  ops=$(grep "Total operations completed:" ${name// /_}_results.txt | awk '{print $4}')
-  ops_per_sec=$(grep "Operations per second:" ${name// /_}_results.txt | awk '{print $4}')
-  
-  # Try to extract energy information
-  energy_joules=$(grep "Total energy:" ${name// /_}_results.txt | awk '{print $3}')
-  
-  # Calculate operations per joule if energy data is available
-  if [ -n "$energy_joules" ] && [ "$energy_joules" -gt 0 ]; then
-    ops_per_joule=$(echo "scale=2; $ops / $energy_joules" | bc)
-  else
-    energy_joules="N/A"
-    ops_per_joule="N/A"
-  fi
-  
-  echo "$name,$ops,$ops_per_sec,$energy_joules,$ops_per_joule" >> energy_results.csv
-  
-  echo ""
-  sleep 5  # Cool down between tests
-done
-
-echo "Energy efficiency benchmarks completed. Results saved to energy_results.csv"
-```
-
-Make the script executable:
-
-```bash
-chmod +x measure_energy.sh
-```
 
 ### Step 4: Run the Benchmark
 
@@ -479,74 +136,6 @@ Arm architectures are known for their energy efficiency. Here are specific optim
 
 Create a file named `arm_cpu_affinity.c`:
 
-```c
-#include <stdio.h>
-#include <stdlib.h>
-#include <time.h>
-#include <unistd.h>
-#include <pthread.h>
-#include <sched.h>
-
-#define ITERATIONS 100000000
-
-// Function to measure time
-double get_time() {
-    struct timespec ts;
-    clock_gettime(CLOCK_MONOTONIC, &ts);
-    return ts.tv_sec + ts.tv_nsec / 1.0e9;
-}
-
-// Compute-intensive function
-void* compute_intensive(void* arg) {
-    int cpu_id = *(int*)arg;
-    double result = 0.0;
-    
-    printf("Thread running on CPU %d\n", cpu_id);
-    
-    double start = get_time();
-    
-    // Perform compute-intensive operations
-    for (int i = 0; i < ITERATIONS; i++) {
-        result += i * 1.1;
-    }
-    
-    double end = get_time();
-    printf("CPU %d: Time: %.6f seconds\n", cpu_id, end - start);
-    
-    // Prevent optimization
-    if (result < 0) {
-        printf("This should never happen\n");
-    }
-    
-    return NULL;
-}
-
-int main() {
-    int num_cpus = sysconf(_SC_NPROCESSORS_ONLN);
-    printf("Number of CPUs: %d\n", num_cpus);
-    
-    // Run on each CPU to measure performance/efficiency
-    for (int cpu = 0; cpu < num_cpus; cpu++) {
-        pthread_t thread;
-        pthread_attr_t attr;
-        cpu_set_t cpuset;
-        
-        pthread_attr_init(&attr);
-        CPU_ZERO(&cpuset);
-        CPU_SET(cpu, &cpuset);
-        pthread_attr_setaffinity_np(&attr, sizeof(cpu_set_t), &cpuset);
-        
-        int cpu_arg = cpu;
-        pthread_create(&thread, &attr, compute_intensive, &cpu_arg);
-        pthread_join(thread, NULL);
-        
-        pthread_attr_destroy(&attr);
-    }
-    
-    return 0;
-}
-```
-
 Compile with:
 
 ```bash
@@ -556,60 +145,6 @@ gcc -O3 -pthread arm_cpu_affinity.c -o arm_cpu_affinity
 ### 2. Arm-optimized Power Management
 
 Create a file named `arm_power_modes.c`:
-
-```c
-#include <stdio.h>
-#include <stdlib.h>
-#include <time.h>
-#include <unistd.h>
-#include <pthread.h>
-
-#define BURST_ITERATIONS 10000000
-#define IDLE_TIME_MS 500
-#define CYCLES 10
-
-// Function to measure time
-double get_time() {
-    struct timespec ts;
-    clock_gettime(CLOCK_MONOTONIC, &ts);
-    return ts.tv_sec + ts.tv_nsec / 1.0e9;
-}
-
-// Function to simulate bursty workload
-void bursty_workload() {
-    double total_compute_time = 0.0;
-    double total_idle_time = 0.0;
-    
-    for (int cycle = 0; cycle < CYCLES; cycle++) {
-        // Burst phase
-        double start = get_time();
-        volatile double result = 0.0;
-        for (int i = 0; i < BURST_ITERATIONS; i++) {
-            result += i * 1.1;
-        }
-        double end = get_time();
-        total_compute_time += (end - start);
-        
-        // Idle phase - allows CPU to enter low power state
-        start = get_time();
-        usleep(IDLE_TIME_MS * 1000);  // Convert to microseconds
-        end = get_time();
-        total_idle_time += (end - start);
-        
-        printf("Cycle %d: Compute: %.6f s, Idle: %.6f s\n", 
-               cycle, end - start, end - start);
-    }
-    
-    printf("Total compute time: %.6f s\n", total_compute_time);
-    printf("Total idle time: %.6f s\n", total_idle_time);
-}
-
-int main() {
-    printf("Running bursty workload optimized for Arm power states...\n");
-    bursty_workload();
-    return 0;
-}
-```
 
 Compile with:
 

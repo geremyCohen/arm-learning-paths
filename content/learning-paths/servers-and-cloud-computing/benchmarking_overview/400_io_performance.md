@@ -16,11 +16,39 @@ For more detailed information about I/O performance, you can refer to:
 - [Understanding Disk I/O](https://www.brendangregg.com/blog/2019-01-01/learn-io-pattern-with-blktrace.html)
 - [Storage Performance Analysis](https://www.snia.org/education/storage-networking-primer/storage-performance)
 
-## Benchmarking Exercise: Comparing I/O Performance
-
-In this exercise, we'll use the Flexible I/O tester (FIO) to measure and compare storage performance across Intel/AMD and Arm systems.
+## Benchmarking Exercise
 
 ### Prerequisites
+
+Ensure you have:
+- Completed the repository setup from the previous chapter
+- Two Ubuntu systems with the bench_guide repository cloned
+
+### Step 1: Navigate to Directory
+
+Navigate to the benchmark directory:
+
+```bash
+cd bench_guide/io_performance
+```
+
+### Step 2: Install Dependencies
+
+Run the setup script:
+
+```bash
+./setup.sh
+```
+
+### Step 3: Run the Benchmark
+
+Execute the benchmark:
+
+```bash
+./benchmark.sh
+```
+
+### Step 4: Analyze the Results
 
 Ensure you have two Ubuntu VMs:
 - One running on Intel/AMD (x86_64)
@@ -35,109 +63,6 @@ Run the following commands on both VMs:
 ```bash
 sudo apt update
 sudo apt install -y fio iotop sysstat
-```
-
-### Step 2: Create Benchmark Script
-
-Create a file named `io_benchmark.sh` with the following content:
-
-```bash
-#!/bin/bash
-
-# Function to get architecture
-get_arch() {
-  arch=$(uname -m)
-  if [[ "$arch" == "x86_64" ]]; then
-    echo "Intel/AMD (x86_64)"
-  elif [[ "$arch" == "aarch64" ]]; then
-    echo "Arm (aarch64)"
-  else
-    echo "Unknown architecture: $arch"
-  fi
-}
-
-# Display system information
-echo "=== System Information ==="
-echo "Architecture: $(get_arch)"
-echo "CPU Model:"
-lscpu | grep "Model name"
-echo "Storage Information:"
-df -h
-echo ""
-lsblk -d -o NAME,SIZE,ROTA,MODEL
-echo ""
-
-# Create test directory
-TEST_DIR="./io_test"
-mkdir -p $TEST_DIR
-
-# Function to run FIO test and extract results
-run_fio_test() {
-  local test_name=$1
-  local filename=$2
-  local rw=$3
-  local bs=$4
-  local iodepth=$5
-  local size=$6
-  local direct=$7
-  
-  echo "=== Running $test_name test ==="
-  echo "Parameters: rw=$rw, bs=$bs, iodepth=$iodepth, size=$size, direct=$direct"
-  
-  fio --name=$test_name \
-      --filename=$filename \
-      --rw=$rw \
-      --bs=$bs \
-      --iodepth=$iodepth \
-      --size=$size \
-      --direct=$direct \
-      --ioengine=libaio \
-      --runtime=30 \
-      --numjobs=4 \
-      --time_based \
-      --group_reporting \
-      --eta-newline=1 \
-      --output=${test_name}_results.txt
-  
-  # Extract and display key metrics
-  echo "Results:"
-  grep -E "read:|write:" ${test_name}_results.txt
-  grep -E "lat \(msec\):" ${test_name}_results.txt
-  echo ""
-}
-
-# Run sequential read test
-run_fio_test "seq_read" "$TEST_DIR/fio_test_file" "read" "1M" "64" "1G" "1"
-
-# Run sequential write test
-run_fio_test "seq_write" "$TEST_DIR/fio_test_file" "write" "1M" "64" "1G" "1"
-
-# Run random read test
-run_fio_test "rand_read" "$TEST_DIR/fio_test_file" "randread" "4k" "64" "1G" "1"
-
-# Run random write test
-run_fio_test "rand_write" "$TEST_DIR/fio_test_file" "randwrite" "4k" "64" "1G" "1"
-
-# Run mixed random read/write test
-run_fio_test "mixed_rw" "$TEST_DIR/fio_test_file" "randrw" "4k" "64" "1G" "1"
-
-# Run latency-sensitive test
-run_fio_test "latency" "$TEST_DIR/fio_test_file" "randread" "4k" "1" "1G" "1"
-
-# Run throughput-oriented test
-run_fio_test "throughput" "$TEST_DIR/fio_test_file" "read" "1M" "128" "2G" "1"
-
-# Clean up
-echo "Cleaning up test files..."
-rm -rf $TEST_DIR
-
-echo "All tests completed."
-```
-
-Make the script executable:
-
-```bash
-chmod +x io_benchmark.sh
 ```
 
 ### Step 3: Run the Benchmark

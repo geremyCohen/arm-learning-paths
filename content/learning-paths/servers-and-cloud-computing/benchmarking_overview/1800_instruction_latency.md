@@ -1,8 +1,6 @@
 ---
 title: Instruction Latency and Throughput
 weight: 1800
-
-### FIXED, DO NOT MODIFY
 layout: learningpathall
 ---
 
@@ -17,11 +15,39 @@ For more detailed information about instruction latency and throughput, you can 
 - [Arm Cortex-A Series Programmer's Guide](https://developer.arm.com/documentation/den0024/latest/)
 - [Intel Optimization Reference Manual](https://software.intel.com/content/www/us/en/develop/download/intel-64-and-ia-32-architectures-optimization-reference-manual.html)
 
-## Benchmarking Exercise: Comparing Instruction Latency and Throughput
-
-In this exercise, we'll measure and compare the latency and throughput of common instructions across Intel/AMD and Arm architectures.
+## Benchmarking Exercise
 
 ### Prerequisites
+
+Ensure you have:
+- Completed the repository setup from the previous chapter
+- Two Ubuntu systems with the bench_guide repository cloned
+
+### Step 1: Navigate to Directory
+
+Navigate to the benchmark directory:
+
+```bash
+cd bench_guide/instruction_latency
+```
+
+### Step 2: Install Dependencies
+
+Run the setup script:
+
+```bash
+./setup.sh
+```
+
+### Step 3: Run the Benchmark
+
+Execute the benchmark:
+
+```bash
+./benchmark.sh
+```
+
+### Step 4: Analyze the Results
 
 Ensure you have two Ubuntu VMs:
 - One running on Intel/AMD (x86_64)
@@ -29,7 +55,27 @@ Ensure you have two Ubuntu VMs:
 
 Both should have similar specifications for fair comparison.
 
-### Step 1: Install Required Tools
+### Step 1: Download and Run Setup Script
+
+Download and run the setup script to install required tools:
+
+```bash
+curl -O https://raw.githubusercontent.com/geremyCohen/bench_guide/main/instruction_latency/setup.sh
+chmod +x setup.sh
+./setup.sh
+```
+
+### Step 2: Run the Benchmark
+
+Execute the benchmark script on both VMs:
+
+```bash
+curl -O https://raw.githubusercontent.com/geremyCohen/bench_guide/main/instruction_latency/benchmark.sh
+chmod +x benchmark.sh
+./benchmark.sh | tee instruction_latency_results.txt
+```
+
+### Step 3: Analyze the Results Install Required Tools
 
 Run the following commands on both VMs:
 
@@ -42,359 +88,9 @@ sudo apt install -y build-essential gcc
 
 Create a file named `latency_benchmark.c` with the following content:
 
-```c
-#include <stdio.h>
-#include <stdlib.h>
-#include <time.h>
-#include <stdint.h>
-
-#define ITERATIONS 100000000
-#define WARMUP_ITERATIONS 1000000
-
-// Function to measure time
-double get_time() {
-    struct timespec ts;
-    clock_gettime(CLOCK_MONOTONIC, &ts);
-    return ts.tv_sec + ts.tv_nsec / 1.0e9;
-}
-
-// Measure integer add latency (dependent chain)
-uint64_t measure_int_add_latency() {
-    uint64_t a = 1;
-    
-    // Warmup
-    for (int i = 0; i < WARMUP_ITERATIONS; i++) {
-        a = a + 1;
-    }
-    
-    double start = get_time();
-    
-    // Create a dependency chain to measure latency
-    for (int i = 0; i < ITERATIONS; i++) {
-        a = a + 1;  // Each operation depends on the previous result
-    }
-    
-    double end = get_time();
-    double elapsed = end - start;
-    double latency_ns = (elapsed * 1e9) / ITERATIONS;
-    
-    printf("Integer Add Latency: %.2f ns\n", latency_ns);
-    return a;  // Prevent optimization
-}
-
-// Measure integer multiply latency (dependent chain)
-uint64_t measure_int_mul_latency() {
-    uint64_t a = 1;
-    
-    // Warmup
-    for (int i = 0; i < WARMUP_ITERATIONS; i++) {
-        a = a * 7;
-    }
-    
-    double start = get_time();
-    
-    // Create a dependency chain to measure latency
-    for (int i = 0; i < ITERATIONS; i++) {
-        a = a * 7;  // Each operation depends on the previous result
-    }
-    
-    double end = get_time();
-    double elapsed = end - start;
-    double latency_ns = (elapsed * 1e9) / ITERATIONS;
-    
-    printf("Integer Multiply Latency: %.2f ns\n", latency_ns);
-    return a;  // Prevent optimization
-}
-
-// Measure floating-point add latency (dependent chain)
-double measure_float_add_latency() {
-    double a = 1.0;
-    
-    // Warmup
-    for (int i = 0; i < WARMUP_ITERATIONS; i++) {
-        a = a + 0.1;
-    }
-    
-    double start = get_time();
-    
-    // Create a dependency chain to measure latency
-    for (int i = 0; i < ITERATIONS; i++) {
-        a = a + 0.1;  // Each operation depends on the previous result
-    }
-    
-    double end = get_time();
-    double elapsed = end - start;
-    double latency_ns = (elapsed * 1e9) / ITERATIONS;
-    
-    printf("Float Add Latency: %.2f ns\n", latency_ns);
-    return a;  // Prevent optimization
-}
-
-// Measure floating-point multiply latency (dependent chain)
-double measure_float_mul_latency() {
-    double a = 1.0;
-    
-    // Warmup
-    for (int i = 0; i < WARMUP_ITERATIONS; i++) {
-        a = a * 1.01;
-    }
-    
-    double start = get_time();
-    
-    // Create a dependency chain to measure latency
-    for (int i = 0; i < ITERATIONS; i++) {
-        a = a * 1.01;  // Each operation depends on the previous result
-    }
-    
-    double end = get_time();
-    double elapsed = end - start;
-    double latency_ns = (elapsed * 1e9) / ITERATIONS;
-    
-    printf("Float Multiply Latency: %.2f ns\n", latency_ns);
-    return a;  // Prevent optimization
-}
-
-int main() {
-    printf("CPU Architecture: %s\n", 
-        #ifdef __x86_64__
-        "x86_64"
-        #elif defined(__aarch64__)
-        "aarch64"
-        #else
-        "unknown"
-        #endif
-    );
-    
-    // Measure instruction latencies
-    volatile uint64_t result1 = measure_int_add_latency();
-    volatile uint64_t result2 = measure_int_mul_latency();
-    volatile double result3 = measure_float_add_latency();
-    volatile double result4 = measure_float_mul_latency();
-    
-    // Prevent compiler from optimizing away the calculations
-    printf("Results (to prevent optimization): %lu %lu %.6f %.6f\n", 
-           result1, result2, result3, result4);
-    
-    return 0;
-}
-```
-
 ### Step 3: Create Instruction Throughput Benchmark
 
 Create a file named `throughput_benchmark.c` with the following content:
-
-```c
-#include <stdio.h>
-#include <stdlib.h>
-#include <time.h>
-#include <stdint.h>
-
-#define ITERATIONS 100000000
-#define WARMUP_ITERATIONS 1000000
-
-// Function to measure time
-double get_time() {
-    struct timespec ts;
-    clock_gettime(CLOCK_MONOTONIC, &ts);
-    return ts.tv_sec + ts.tv_nsec / 1.0e9;
-}
-
-// Measure integer add throughput (independent operations)
-void measure_int_add_throughput() {
-    uint64_t a = 1, b = 2, c = 3, d = 4;
-    
-    // Warmup
-    for (int i = 0; i < WARMUP_ITERATIONS; i++) {
-        a += 1;
-        b += 1;
-        c += 1;
-        d += 1;
-    }
-    
-    double start = get_time();
-    
-    // Independent operations to measure throughput
-    for (int i = 0; i < ITERATIONS; i++) {
-        a += 1;  // Independent operations
-        b += 1;
-        c += 1;
-        d += 1;
-    }
-    
-    double end = get_time();
-    double elapsed = end - start;
-    double ops_per_second = (ITERATIONS * 4) / elapsed;
-    double throughput_ns = (elapsed * 1e9) / (ITERATIONS * 4);
-    
-    printf("Integer Add Throughput: %.2f operations/ns (%.2f GOPS)\n", 
-           1.0 / throughput_ns, ops_per_second / 1e9);
-    printf("Results: %lu %lu %lu %lu\n", a, b, c, d);  // Prevent optimization
-}
-
-// Measure integer multiply throughput (independent operations)
-void measure_int_mul_throughput() {
-    uint64_t a = 1, b = 2, c = 3, d = 4;
-    
-    // Warmup
-    for (int i = 0; i < WARMUP_ITERATIONS; i++) {
-        a *= 7;
-        b *= 7;
-        c *= 7;
-        d *= 7;
-    }
-    
-    double start = get_time();
-    
-    // Independent operations to measure throughput
-    for (int i = 0; i < ITERATIONS; i++) {
-        a *= 7;  // Independent operations
-        b *= 7;
-        c *= 7;
-        d *= 7;
-    }
-    
-    double end = get_time();
-    double elapsed = end - start;
-    double ops_per_second = (ITERATIONS * 4) / elapsed;
-    double throughput_ns = (elapsed * 1e9) / (ITERATIONS * 4);
-    
-    printf("Integer Multiply Throughput: %.2f operations/ns (%.2f GOPS)\n", 
-           1.0 / throughput_ns, ops_per_second / 1e9);
-    printf("Results: %lu %lu %lu %lu\n", a, b, c, d);  // Prevent optimization
-}
-
-// Measure floating-point add throughput (independent operations)
-void measure_float_add_throughput() {
-    double a = 1.0, b = 2.0, c = 3.0, d = 4.0;
-    
-    // Warmup
-    for (int i = 0; i < WARMUP_ITERATIONS; i++) {
-        a += 0.1;
-        b += 0.1;
-        c += 0.1;
-        d += 0.1;
-    }
-    
-    double start = get_time();
-    
-    // Independent operations to measure throughput
-    for (int i = 0; i < ITERATIONS; i++) {
-        a += 0.1;  // Independent operations
-        b += 0.1;
-        c += 0.1;
-        d += 0.1;
-    }
-    
-    double end = get_time();
-    double elapsed = end - start;
-    double ops_per_second = (ITERATIONS * 4) / elapsed;
-    double throughput_ns = (elapsed * 1e9) / (ITERATIONS * 4);
-    
-    printf("Float Add Throughput: %.2f operations/ns (%.2f GFLOPS)\n", 
-           1.0 / throughput_ns, ops_per_second / 1e9);
-    printf("Results: %.6f %.6f %.6f %.6f\n", a, b, c, d);  // Prevent optimization
-}
-
-// Measure floating-point multiply throughput (independent operations)
-void measure_float_mul_throughput() {
-    double a = 1.0, b = 2.0, c = 3.0, d = 4.0;
-    
-    // Warmup
-    for (int i = 0; i < WARMUP_ITERATIONS; i++) {
-        a *= 1.01;
-        b *= 1.01;
-        c *= 1.01;
-        d *= 1.01;
-    }
-    
-    double start = get_time();
-    
-    // Independent operations to measure throughput
-    for (int i = 0; i < ITERATIONS; i++) {
-        a *= 1.01;  // Independent operations
-        b *= 1.01;
-        c *= 1.01;
-        d *= 1.01;
-    }
-    
-    double end = get_time();
-    double elapsed = end - start;
-    double ops_per_second = (ITERATIONS * 4) / elapsed;
-    double throughput_ns = (elapsed * 1e9) / (ITERATIONS * 4);
-    
-    printf("Float Multiply Throughput: %.2f operations/ns (%.2f GFLOPS)\n", 
-           1.0 / throughput_ns, ops_per_second / 1e9);
-    printf("Results: %.6f %.6f %.6f %.6f\n", a, b, c, d);  // Prevent optimization
-}
-
-int main() {
-    printf("CPU Architecture: %s\n", 
-        #ifdef __x86_64__
-        "x86_64"
-        #elif defined(__aarch64__)
-        "aarch64"
-        #else
-        "unknown"
-        #endif
-    );
-    
-    // Measure instruction throughput
-    measure_int_add_throughput();
-    measure_int_mul_throughput();
-    measure_float_add_throughput();
-    measure_float_mul_throughput();
-    
-    return 0;
-}
-```
-
-### Step 4: Create Benchmark Script
-
-Create a file named `run_instruction_benchmark.sh` with the following content:
-
-```bash
-#!/bin/bash
-
-# Get architecture and CPU info
-arch=$(uname -m)
-echo "Architecture: $arch"
-echo "CPU: $(lscpu | grep 'Model name' | cut -d: -f2 | xargs)"
-echo "CPU Frequency: $(lscpu | grep 'CPU MHz' | cut -d: -f2 | xargs) MHz"
-
-# Compile benchmarks
-echo "Compiling benchmarks..."
-gcc -O3 latency_benchmark.c -o latency_benchmark
-gcc -O3 throughput_benchmark.c -o throughput_benchmark
-
-# Run latency benchmark
-echo "Running instruction latency benchmark..."
-./latency_benchmark | tee latency_results.txt
-
-# Run throughput benchmark
-echo "Running instruction throughput benchmark..."
-./throughput_benchmark | tee throughput_results.txt
-
-# Extract and format results
-echo "Instruction,Latency (ns)" > latency_summary.csv
-grep "Integer Add Latency" latency_results.txt | awk '{print "Integer Add," $4}' >> latency_summary.csv
-grep "Integer Multiply Latency" latency_results.txt | awk '{print "Integer Multiply," $4}' >> latency_summary.csv
-grep "Float Add Latency" latency_results.txt | awk '{print "Float Add," $4}' >> latency_summary.csv
-grep "Float Multiply Latency" latency_results.txt | awk '{print "Float Multiply," $4}' >> latency_summary.csv
-
-echo "Instruction,Throughput (ops/ns),GOPS/GFLOPS" > throughput_summary.csv
-grep "Integer Add Throughput" throughput_results.txt | awk '{print "Integer Add," $4, $6}' | sed 's/(//' >> throughput_summary.csv
-grep "Integer Multiply Throughput" throughput_results.txt | awk '{print "Integer Multiply," $4, $6}' | sed 's/(//' >> throughput_summary.csv
-grep "Float Add Throughput" throughput_results.txt | awk '{print "Float Add," $4, $6}' | sed 's/(//' >> throughput_summary.csv
-grep "Float Multiply Throughput" throughput_results.txt | awk '{print "Float Multiply," $4, $6}' | sed 's/(//' >> throughput_summary.csv
-
-echo "Benchmark complete. Results saved to latency_summary.csv and throughput_summary.csv"
-```
-
-Make the script executable:
-
-```bash
-chmod +x run_instruction_benchmark.sh
-```
 
 ### Step 5: Run the Benchmark
 
@@ -431,104 +127,6 @@ Arm architectures offer several optimization techniques to improve instruction l
 
 Create a file named `arm_instruction_opt.c`:
 
-```c
-#include <stdio.h>
-#include <stdlib.h>
-#include <time.h>
-#include <stdint.h>
-
-#define ITERATIONS 100000000
-
-// Function to measure time
-double get_time() {
-    struct timespec ts;
-    clock_gettime(CLOCK_MONOTONIC, &ts);
-    return ts.tv_sec + ts.tv_nsec / 1.0e9;
-}
-
-// Standard multiply implementation
-uint64_t multiply_standard(uint32_t a, uint32_t b, uint32_t iterations) {
-    uint64_t result = 0;
-    
-    for (uint32_t i = 0; i < iterations; i++) {
-        result += (uint64_t)a * b;
-    }
-    
-    return result;
-}
-
-// Arm-optimized multiply using UMULL instruction
-uint64_t multiply_arm_optimized(uint32_t a, uint32_t b, uint32_t iterations) {
-    uint64_t result = 0;
-    
-    for (uint32_t i = 0; i < iterations; i++) {
-        uint64_t temp;
-        #ifdef __aarch64__
-        // Use inline assembly to ensure UMULL is used
-        __asm__ volatile("mul %0, %1, %2" : "=r" (temp) : "r" (a), "r" (b));
-        #else
-        temp = (uint64_t)a * b;
-        #endif
-        result += temp;
-    }
-    
-    return result;
-}
-
-// Arm-optimized FMA (Fused Multiply-Add)
-double fma_arm_optimized(double a, double b, double c, uint32_t iterations) {
-    double result = 0.0;
-    
-    for (uint32_t i = 0; i < iterations; i++) {
-        #ifdef __aarch64__
-        // Use inline assembly to ensure FMADD is used
-        __asm__ volatile("fmadd %d0, %d1, %d2, %d3" : "=w" (result) : "w" (a), "w" (b), "w" (c));
-        #else
-        result = a * b + c;
-        #endif
-    }
-    
-    return result;
-}
-
-int main() {
-    uint32_t a = 12345;
-    uint32_t b = 67890;
-    double fa = 1.1, fb = 2.2, fc = 3.3;
-    
-    printf("CPU Architecture: %s\n", 
-        #ifdef __aarch64__
-        "aarch64"
-        #else
-        "other"
-        #endif
-    );
-    
-    // Test standard multiply
-    double start = get_time();
-    uint64_t result1 = multiply_standard(a, b, ITERATIONS);
-    double end = get_time();
-    printf("Standard multiply time: %.6f seconds\n", end - start);
-    
-    // Test Arm-optimized multiply
-    start = get_time();
-    uint64_t result2 = multiply_arm_optimized(a, b, ITERATIONS);
-    end = get_time();
-    printf("Arm-optimized multiply time: %.6f seconds\n", end - start);
-    
-    // Test Arm-optimized FMA
-    start = get_time();
-    double result3 = fma_arm_optimized(fa, fb, fc, ITERATIONS);
-    end = get_time();
-    printf("Arm-optimized FMA time: %.6f seconds\n", end - start);
-    
-    // Prevent optimization
-    printf("Results: %lu %lu %.6f\n", result1, result2, result3);
-    
-    return 0;
-}
-```
-
 Compile with Arm-specific optimizations:
 
 ```bash
@@ -538,92 +136,6 @@ gcc -O3 -march=native arm_instruction_opt.c -o arm_instruction_opt
 ### 2. Arm-optimized Loop Unrolling
 
 Create a file named `arm_loop_unroll.c`:
-
-```c
-#include <stdio.h>
-#include <stdlib.h>
-#include <time.h>
-#include <stdint.h>
-
-#define ARRAY_SIZE 10000000
-#define ITERATIONS 100
-
-// Function to measure time
-double get_time() {
-    struct timespec ts;
-    clock_gettime(CLOCK_MONOTONIC, &ts);
-    return ts.tv_sec + ts.tv_nsec / 1.0e9;
-}
-
-// Standard loop
-uint64_t standard_loop(uint32_t *array, uint32_t size) {
-    uint64_t sum = 0;
-    
-    for (uint32_t i = 0; i < size; i++) {
-        sum += array[i];
-    }
-    
-    return sum;
-}
-
-// Arm-optimized unrolled loop
-uint64_t unrolled_loop(uint32_t *array, uint32_t size) {
-    uint64_t sum0 = 0, sum1 = 0, sum2 = 0, sum3 = 0;
-    uint32_t i = 0;
-    
-    // Process 4 elements per iteration
-    for (; i + 3 < size; i += 4) {
-        sum0 += array[i];
-        sum1 += array[i+1];
-        sum2 += array[i+2];
-        sum3 += array[i+3];
-    }
-    
-    // Handle remaining elements
-    for (; i < size; i++) {
-        sum0 += array[i];
-    }
-    
-    return sum0 + sum1 + sum2 + sum3;
-}
-
-int main() {
-    // Allocate and initialize array
-    uint32_t *array = (uint32_t *)malloc(ARRAY_SIZE * sizeof(uint32_t));
-    if (!array) {
-        perror("malloc");
-        return 1;
-    }
-    
-    for (uint32_t i = 0; i < ARRAY_SIZE; i++) {
-        array[i] = rand() % 100;
-    }
-    
-    // Test standard loop
-    double start = get_time();
-    uint64_t result1 = 0;
-    for (int iter = 0; iter < ITERATIONS; iter++) {
-        result1 += standard_loop(array, ARRAY_SIZE);
-    }
-    double end = get_time();
-    printf("Standard loop time: %.6f seconds\n", end - start);
-    
-    // Test unrolled loop
-    start = get_time();
-    uint64_t result2 = 0;
-    for (int iter = 0; iter < ITERATIONS; iter++) {
-        result2 += unrolled_loop(array, ARRAY_SIZE);
-    }
-    end = get_time();
-    printf("Unrolled loop time: %.6f seconds\n", end - start);
-    
-    // Prevent optimization
-    printf("Results: %lu %lu\n", result1, result2);
-    
-    free(array);
-    return 0;
-}
-```
 
 Compile with:
 

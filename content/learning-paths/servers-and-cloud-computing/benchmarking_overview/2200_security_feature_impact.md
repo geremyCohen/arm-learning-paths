@@ -1,8 +1,6 @@
 ---
 title: Security Feature Impact
 weight: 2200
-
-### FIXED, DO NOT MODIFY
 layout: learningpathall
 ---
 
@@ -17,11 +15,39 @@ For more detailed information about security features and their performance impa
 - [Arm Security Features](https://developer.arm.com/documentation/102418/0100/Security-features)
 - [Intel Security Features](https://software.intel.com/content/www/us/en/develop/topics/software-security-guidance.html)
 
-## Benchmarking Exercise: Comparing Security Feature Impact
-
-In this exercise, we'll measure and compare the performance impact of various security features across Intel/AMD and Arm architectures.
+## Benchmarking Exercise
 
 ### Prerequisites
+
+Ensure you have:
+- Completed the repository setup from the previous chapter
+- Two Ubuntu systems with the bench_guide repository cloned
+
+### Step 1: Navigate to Directory
+
+Navigate to the benchmark directory:
+
+```bash
+cd bench_guide/security_impact
+```
+
+### Step 2: Install Dependencies
+
+Run the setup script:
+
+```bash
+./setup.sh
+```
+
+### Step 3: Run the Benchmark
+
+Execute the benchmark:
+
+```bash
+./benchmark.sh
+```
+
+### Step 4: Analyze the Results
 
 Ensure you have two Ubuntu VMs:
 - One running on Intel/AMD (x86_64)
@@ -29,387 +55,33 @@ Ensure you have two Ubuntu VMs:
 
 Both should have similar specifications for fair comparison.
 
-### Step 1: Install Required Tools
+### Step 1: Download and Run Setup Script
+
+Download and run the setup script to install required tools:
+
+```bash
+curl -O https://raw.githubusercontent.com/geremyCohen/bench_guide/main/security_impact/setup.sh
+chmod +x setup.sh
+./setup.sh
+```
+
+### Step 2: Run the Benchmark
+
+Execute the benchmark script on both VMs:
+
+```bash
+curl -O https://raw.githubusercontent.com/geremyCohen/bench_guide/main/security_impact/benchmark.sh
+chmod +x benchmark.sh
+./benchmark.sh | tee security_impact_results.txt
+```
+
+### Step 3: Analyze the Results Install Required Tools
 
 Run the following commands on both VMs:
 
 ```bash
 sudo apt update
 sudo apt install -y build-essential gcc python3-matplotlib sysbench linux-tools-common linux-tools-generic
-```
-
-### Step 2: Create Security Feature Detection Script
-
-Create a file named `check_security_features.sh` with the following content:
-
-```bash
-#!/bin/bash
-
-# Function to get architecture
-get_arch() {
-  arch=$(uname -m)
-  if [[ "$arch" == "x86_64" ]]; then
-    echo "Intel/AMD (x86_64)"
-  elif [[ "$arch" == "aarch64" ]]; then
-    echo "Arm (aarch64)"
-  else
-    echo "Unknown architecture: $arch"
-  fi
-}
-
-# Display system information
-echo "=== System Information ==="
-echo "Architecture: $(get_arch)"
-echo "CPU Model:"
-lscpu | grep "Model name"
-echo "Kernel Version:"
-uname -r
-echo ""
-
-# Check for Spectre/Meltdown mitigations
-echo "=== Spectre/Meltdown Mitigations ==="
-if [ -f /sys/devices/system/cpu/vulnerabilities/spectre_v1 ]; then
-  echo "Spectre V1: $(cat /sys/devices/system/cpu/vulnerabilities/spectre_v1)"
-fi
-if [ -f /sys/devices/system/cpu/vulnerabilities/spectre_v2 ]; then
-  echo "Spectre V2: $(cat /sys/devices/system/cpu/vulnerabilities/spectre_v2)"
-fi
-if [ -f /sys/devices/system/cpu/vulnerabilities/meltdown ]; then
-  echo "Meltdown: $(cat /sys/devices/system/cpu/vulnerabilities/meltdown)"
-fi
-if [ -f /sys/devices/system/cpu/vulnerabilities/spec_store_bypass ]; then
-  echo "Speculative Store Bypass: $(cat /sys/devices/system/cpu/vulnerabilities/spec_store_bypass)"
-fi
-if [ -f /sys/devices/system/cpu/vulnerabilities/l1tf ]; then
-  echo "L1 Terminal Fault: $(cat /sys/devices/system/cpu/vulnerabilities/l1tf)"
-fi
-if [ -f /sys/devices/system/cpu/vulnerabilities/mds ]; then
-  echo "Microarchitectural Data Sampling: $(cat /sys/devices/system/cpu/vulnerabilities/mds)"
-fi
-echo ""
-
-# Check for kernel command line mitigations
-echo "=== Kernel Command Line Mitigations ==="
-grep -E 'mitigations=|nospectre|nopti|noibrs|noibpb|mds=|l1tf=' /proc/cmdline || echo "No specific mitigation parameters found in kernel command line"
-echo ""
-
-# Check for CPU features related to security
-echo "=== CPU Security Features ==="
-if [[ "$(get_arch)" == "Intel/AMD (x86_64)" ]]; then
-  grep -E 'ibpb|ibrs|stibp|ssbd|pti|md_clear|tsx_async_abort|tsx|srbds' /proc/cpuinfo | sort -u
-elif [[ "$(get_arch)" == "Arm (aarch64)" ]]; then
-  grep -E 'ssbs|sb|csv2|csv3|specres' /proc/cpuinfo | sort -u
-fi
-echo ""
-
-# Check for seccomp
-echo "=== Seccomp Status ==="
-if grep -q seccomp /proc/cpuinfo; then
-  echo "Seccomp is supported by the CPU"
-else
-  echo "Seccomp is not explicitly listed in CPU features"
-fi
-if grep -q CONFIG_SECCOMP=y /boot/config-$(uname -r) 2>/dev/null; then
-  echo "Seccomp is enabled in the kernel"
-else
-  echo "Seccomp status in kernel could not be determined"
-fi
-echo ""
-
-# Check for ASLR
-echo "=== ASLR Status ==="
-cat /proc/sys/kernel/randomize_va_space
-echo "0 = No randomization"
-echo "1 = Conservative randomization"
-echo "2 = Full randomization"
-echo ""
-```
-
-Make the script executable:
-
-```bash
-chmod +x check_security_features.sh
-```
-
-### Step 3: Create Security Impact Benchmark
-
-Create a file named `security_impact.c` with the following content:
-
-```c
-#include <stdio.h>
-#include <stdlib.h>
-#include <time.h>
-#include <string.h>
-#include <unistd.h>
-#include <sys/mman.h>
-
-#define ARRAY_SIZE (100 * 1024 * 1024)  // 100MB
-#define ITERATIONS 1000
-#define PAGE_SIZE 4096
-
-// Function to measure time
-double get_time() {
-    struct timespec ts;
-    clock_gettime(CLOCK_MONOTONIC, &ts);
-    return ts.tv_sec + ts.tv_nsec / 1.0e9;
-}
-
-// Test memory access patterns that may trigger Spectre/Meltdown mitigations
-void test_speculative_access() {
-    printf("Testing speculative memory access patterns...\n");
-    
-    // Allocate a large array
-    unsigned char *array = (unsigned char *)malloc(ARRAY_SIZE);
-    if (!array) {
-        perror("malloc");
-        return;
-    }
-    
-    // Initialize array
-    memset(array, 0, ARRAY_SIZE);
-    
-    // Warmup
-    for (int i = 0; i < 1000; i++) {
-        array[i * PAGE_SIZE] = 1;
-    }
-    
-    double start = get_time();
-    
-    // Access memory with patterns that might trigger speculation
-    for (int iter = 0; iter < ITERATIONS; iter++) {
-        for (int i = 0; i < ARRAY_SIZE; i += PAGE_SIZE) {
-            // Use conditional to potentially trigger speculative execution
-            if (i < ARRAY_SIZE) {
-                array[i]++;
-            }
-        }
-    }
-    
-    double end = get_time();
-    double elapsed = end - start;
-    
-    printf("Speculative access time: %.6f seconds\n", elapsed);
-    printf("Accesses per second: %.2f million\n", 
-           (ITERATIONS * (ARRAY_SIZE / PAGE_SIZE)) / (elapsed * 1000000));
-    
-    // Prevent optimization
-    unsigned char sum = 0;
-    for (int i = 0; i < ARRAY_SIZE; i += PAGE_SIZE) {
-        sum += array[i];
-    }
-    printf("Checksum: %u\n", sum);
-    
-    free(array);
-}
-
-// Test system call overhead (affected by Spectre/Meltdown mitigations)
-void test_syscall_overhead() {
-    printf("Testing system call overhead...\n");
-    
-    double start = get_time();
-    
-    // Perform many system calls
-    for (int i = 0; i < ITERATIONS * 1000; i++) {
-        getpid();  // Simple system call
-    }
-    
-    double end = get_time();
-    double elapsed = end - start;
-    
-    printf("System call time: %.6f seconds\n", elapsed);
-    printf("System calls per second: %.2f million\n", 
-           (ITERATIONS * 1000) / (elapsed * 1000000));
-}
-
-// Test context switching overhead (affected by Spectre/Meltdown mitigations)
-void test_context_switch() {
-    printf("Testing context switching overhead...\n");
-    
-    int pipes[2];
-    if (pipe(pipes) == -1) {
-        perror("pipe");
-        return;
-    }
-    
-    double start = get_time();
-    
-    // Create a child process
-    pid_t pid = fork();
-    
-    if (pid == -1) {
-        perror("fork");
-        return;
-    } else if (pid == 0) {
-        // Child process
-        close(pipes[0]);  // Close read end
-        
-        char buf = 'A';
-        for (int i = 0; i < ITERATIONS; i++) {
-            write(pipes[1], &buf, 1);
-            // Wait for parent response
-            read(pipes[1], &buf, 1);
-        }
-        
-        close(pipes[1]);
-        exit(0);
-    } else {
-        // Parent process
-        close(pipes[1]);  // Close write end
-        
-        char buf;
-        for (int i = 0; i < ITERATIONS; i++) {
-            read(pipes[0], &buf, 1);
-            write(pipes[0], &buf, 1);
-        }
-        
-        close(pipes[0]);
-    }
-    
-    double end = get_time();
-    double elapsed = end - start;
-    
-    printf("Context switch time: %.6f seconds\n", elapsed);
-    printf("Context switches per second: %.2f thousand\n", 
-           (ITERATIONS * 2) / (elapsed * 1000));  // *2 because each iteration has 2 switches
-}
-
-// Test memory barriers (used in some mitigations)
-void test_memory_barriers() {
-    printf("Testing memory barrier overhead...\n");
-    
-    volatile int dummy = 0;
-    
-    // Warmup
-    for (int i = 0; i < 1000; i++) {
-        dummy++;
-        __sync_synchronize();  // Full memory barrier
-    }
-    
-    double start = get_time();
-    
-    // Perform operations with memory barriers
-    for (int i = 0; i < ITERATIONS * 10000; i++) {
-        dummy++;
-        __sync_synchronize();  // Full memory barrier
-    }
-    
-    double end = get_time();
-    double elapsed = end - start;
-    
-    printf("Memory barrier time: %.6f seconds\n", elapsed);
-    printf("Operations with barriers per second: %.2f million\n", 
-           (ITERATIONS * 10000) / (elapsed * 1000000));
-    printf("Dummy value: %d\n", dummy);  // Prevent optimization
-}
-
-int main() {
-    printf("CPU Architecture: %s\n", 
-        #ifdef __x86_64__
-        "x86_64"
-        #elif defined(__aarch64__)
-        "aarch64"
-        #else
-        "unknown"
-        #endif
-    );
-    
-    printf("\nTesting Security Feature Impact\n");
-    printf("==============================\n\n");
-    
-    test_speculative_access();
-    printf("\n");
-    test_syscall_overhead();
-    printf("\n");
-    test_context_switch();
-    printf("\n");
-    test_memory_barriers();
-    
-    return 0;
-}
-```
-
-Compile the benchmark:
-
-```bash
-gcc -O2 security_impact.c -o security_impact -lpthread
-```
-
-### Step 4: Create Benchmark Script
-
-Create a file named `run_security_benchmark.sh` with the following content:
-
-```bash
-#!/bin/bash
-
-# Function to get architecture
-get_arch() {
-  arch=$(uname -m)
-  if [[ "$arch" == "x86_64" ]]; then
-    echo "Intel/AMD (x86_64)"
-  elif [[ "$arch" == "aarch64" ]]; then
-    echo "Arm (aarch64)"
-  else
-    echo "Unknown architecture: $arch"
-  fi
-}
-
-# Display system information
-echo "=== System Information ==="
-echo "Architecture: $(get_arch)"
-echo "CPU Model:"
-lscpu | grep "Model name"
-echo "Kernel Version:"
-uname -r
-echo ""
-
-# Check security features
-echo "=== Checking Security Features ==="
-./check_security_features.sh
-echo ""
-
-# Run security impact benchmark
-echo "=== Running Security Impact Benchmark ==="
-./security_impact | tee security_impact_results.txt
-echo ""
-
-# Run standard benchmarks for comparison
-echo "=== Running Standard Benchmarks ==="
-
-# CPU benchmark
-echo "Running CPU benchmark..."
-sysbench cpu --threads=1 --time=30 run | tee sysbench_cpu.txt
-
-# Memory benchmark
-echo "Running Memory benchmark..."
-sysbench memory --threads=1 --memory-block-size=1K --memory-total-size=100G --time=30 run | tee sysbench_memory.txt
-
-# Extract and format results
-echo "test,value" > security_impact_summary.csv
-grep "Speculative access time:" security_impact_results.txt | awk '{print "speculative_access_time," $4}' >> security_impact_summary.csv
-grep "Accesses per second:" security_impact_results.txt | head -1 | awk '{print "speculative_access_rate," $4}' >> security_impact_summary.csv
-grep "System call time:" security_impact_results.txt | awk '{print "syscall_time," $4}' >> security_impact_summary.csv
-grep "System calls per second:" security_impact_results.txt | awk '{print "syscall_rate," $5}' >> security_impact_summary.csv
-grep "Context switch time:" security_impact_results.txt | awk '{print "context_switch_time," $4}' >> security_impact_summary.csv
-grep "Context switches per second:" security_impact_results.txt | awk '{print "context_switch_rate," $5}' >> security_impact_summary.csv
-grep "Memory barrier time:" security_impact_results.txt | awk '{print "memory_barrier_time," $4}' >> security_impact_summary.csv
-grep "Operations with barriers per second:" security_impact_results.txt | awk '{print "memory_barrier_rate," $6}' >> security_impact_summary.csv
-grep "events per second:" sysbench_cpu.txt | awk '{print "cpu_events_per_second," $4}' >> security_impact_summary.csv
-grep "transferred" sysbench_memory.txt | awk '{print "memory_transfer_rate," $(NF-1)}' >> security_impact_summary.csv
-
-echo "Security benchmarks completed. Results saved to security_impact_summary.csv"
-
-# Optional: Test with mitigations disabled (requires reboot)
-echo ""
-echo "To test with mitigations disabled, you can reboot with the following kernel parameters:"
-echo "  mitigations=off spectre_v2=off spec_store_bypass_disable=off l1tf=off mds=off"
-echo "WARNING: This will make your system vulnerable to known security exploits!"
-echo "Add these parameters to your bootloader configuration and reboot to test."
-```
-
-Make the script executable:
-
-```bash
-chmod +x run_security_benchmark.sh
 ```
 
 ### Step 5: Run the Benchmark
@@ -446,103 +118,6 @@ Arm architectures offer several security features with different performance cha
 
 Create a file named `arm_trustzone_benchmark.c`:
 
-```c
-#include <stdio.h>
-#include <stdlib.h>
-#include <time.h>
-#include <unistd.h>
-#include <string.h>
-
-#define ITERATIONS 1000000
-#define DATA_SIZE 1024
-
-// Function to measure time
-double get_time() {
-    struct timespec ts;
-    clock_gettime(CLOCK_MONOTONIC, &ts);
-    return ts.tv_sec + ts.tv_nsec / 1.0e9;
-}
-
-// Simulate normal world processing
-void normal_world_processing(unsigned char *data, size_t size) {
-    for (size_t i = 0; i < size; i++) {
-        data[i] = (data[i] + 1) % 256;
-    }
-}
-
-// Simulate secure world call (would use TrustZone SMC in real implementation)
-void simulate_secure_world_call(unsigned char *data, size_t size) {
-    // In a real implementation, this would be an SMC call to TrustZone
-    // Here we just simulate the overhead with a memory barrier and processing
-    __sync_synchronize();  // Memory barrier
-    
-    // Simulate secure world processing
-    for (size_t i = 0; i < size; i++) {
-        data[i] = (data[i] * 2) % 256;
-    }
-    
-    __sync_synchronize();  // Memory barrier
-}
-
-// Optimized approach: batch operations to reduce world switches
-void optimized_secure_processing(unsigned char *data, size_t size, int batch_size) {
-    for (size_t i = 0; i < size; i += batch_size) {
-        size_t current_batch = (i + batch_size > size) ? (size - i) : batch_size;
-        simulate_secure_world_call(data + i, current_batch);
-    }
-}
-
-int main() {
-    printf("CPU Architecture: %s\n", 
-        #ifdef __aarch64__
-        "aarch64"
-        #else
-        "other"
-        #endif
-    );
-    
-    // Allocate data buffer
-    unsigned char *data = (unsigned char *)malloc(DATA_SIZE);
-    if (!data) {
-        perror("malloc");
-        return 1;
-    }
-    
-    // Initialize data
-    for (int i = 0; i < DATA_SIZE; i++) {
-        data[i] = rand() % 256;
-    }
-    
-    // Benchmark normal world processing
-    double start = get_time();
-    for (int i = 0; i < ITERATIONS; i++) {
-        normal_world_processing(data, DATA_SIZE);
-    }
-    double end = get_time();
-    printf("Normal world processing time: %.6f seconds\n", end - start);
-    
-    // Benchmark individual secure world calls
-    start = get_time();
-    for (int i = 0; i < ITERATIONS; i++) {
-        simulate_secure_world_call(data, DATA_SIZE);
-    }
-    end = get_time();
-    printf("Individual secure world calls time: %.6f seconds\n", end - start);
-    
-    // Benchmark optimized (batched) secure world calls
-    int batch_size = 64;  // Process 64 bytes per secure world call
-    start = get_time();
-    for (int i = 0; i < ITERATIONS; i++) {
-        optimized_secure_processing(data, DATA_SIZE, batch_size);
-    }
-    end = get_time();
-    printf("Optimized secure world calls time: %.6f seconds\n", end - start);
-    
-    free(data);
-    return 0;
-}
-```
-
 Compile with:
 
 ```bash
@@ -552,94 +127,6 @@ gcc -O3 arm_trustzone_benchmark.c -o arm_trustzone_benchmark
 ### 2. Arm Memory Tagging Extension (MTE) Optimization
 
 Create a file named `arm_mte_simulation.c`:
-
-```c
-#include <stdio.h>
-#include <stdlib.h>
-#include <time.h>
-#include <string.h>
-
-#define ARRAY_SIZE 10000000
-#define ITERATIONS 100
-
-// Function to measure time
-double get_time() {
-    struct timespec ts;
-    clock_gettime(CLOCK_MONOTONIC, &ts);
-    return ts.tv_sec + ts.tv_nsec / 1.0e9;
-}
-
-// Simulate standard memory access
-void standard_memory_access(int *array, size_t size) {
-    for (size_t i = 0; i < size; i++) {
-        array[i] = i;
-    }
-}
-
-// Simulate MTE-like memory access with tag checking
-void mte_simulation(int *array, size_t size) {
-    for (size_t i = 0; i < size; i++) {
-        // Simulate tag checking overhead
-        __sync_synchronize();  // Memory barrier to simulate tag check
-        array[i] = i;
-    }
-}
-
-// Optimized MTE-like access with reduced tag checking
-void optimized_mte_simulation(int *array, size_t size) {
-    // Check tags only at boundaries (e.g., every 16 elements)
-    for (size_t i = 0; i < size; i++) {
-        if ((i % 16) == 0) {
-            __sync_synchronize();  // Memory barrier to simulate tag check
-        }
-        array[i] = i;
-    }
-}
-
-int main() {
-    printf("CPU Architecture: %s\n", 
-        #ifdef __aarch64__
-        "aarch64"
-        #else
-        "other"
-        #endif
-    );
-    
-    // Allocate array
-    int *array = (int *)malloc(ARRAY_SIZE * sizeof(int));
-    if (!array) {
-        perror("malloc");
-        return 1;
-    }
-    
-    // Benchmark standard memory access
-    double start = get_time();
-    for (int i = 0; i < ITERATIONS; i++) {
-        standard_memory_access(array, ARRAY_SIZE);
-    }
-    double end = get_time();
-    printf("Standard memory access time: %.6f seconds\n", end - start);
-    
-    // Benchmark simulated MTE memory access
-    start = get_time();
-    for (int i = 0; i < ITERATIONS; i++) {
-        mte_simulation(array, ARRAY_SIZE);
-    }
-    end = get_time();
-    printf("Simulated MTE memory access time: %.6f seconds\n", end - start);
-    
-    // Benchmark optimized MTE memory access
-    start = get_time();
-    for (int i = 0; i < ITERATIONS; i++) {
-        optimized_mte_simulation(array, ARRAY_SIZE);
-    }
-    end = get_time();
-    printf("Optimized MTE memory access time: %.6f seconds\n", end - start);
-    
-    free(array);
-    return 0;
-}
-```
 
 Compile with:
 

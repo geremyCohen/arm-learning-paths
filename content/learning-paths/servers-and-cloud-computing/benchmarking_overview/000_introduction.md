@@ -1,8 +1,6 @@
 ---
 title: Introduction to Architecture Benchmarking
 weight: 000
-
-### FIXED, DO NOT MODIFY
 layout: learningpathall
 ---
 

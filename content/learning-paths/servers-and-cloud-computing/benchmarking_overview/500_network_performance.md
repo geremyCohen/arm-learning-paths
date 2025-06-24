@@ -16,11 +16,39 @@ For more detailed information about network performance, you can refer to:
 - [Network Performance Analysis](https://www.brendangregg.com/blog/2018-03-22/tcp-tracepoints.html)
 - [Understanding Network Throughput vs Latency](https://www.networkcomputing.com/networking/understanding-throughput-vs-latency)
 
-## Benchmarking Exercise: Comparing Network Performance
-
-In this exercise, we'll use common networking tools to measure and compare network performance across Intel/AMD and Arm systems.
+## Benchmarking Exercise
 
 ### Prerequisites
+
+Ensure you have:
+- Completed the repository setup from the previous chapter
+- Two Ubuntu systems with the bench_guide repository cloned
+
+### Step 1: Navigate to Directory
+
+Navigate to the benchmark directory:
+
+```bash
+cd bench_guide/network_performance
+```
+
+### Step 2: Install Dependencies
+
+Run the setup script:
+
+```bash
+./setup.sh
+```
+
+### Step 3: Run the Benchmark
+
+Execute the benchmark:
+
+```bash
+./benchmark.sh
+```
+
+### Step 4: Analyze the Results
 
 Ensure you have two pairs of VMs (four VMs total):
 - One pair running on Intel/AMD (x86_64) - server and client
@@ -35,106 +63,6 @@ Run the following commands on all four VMs:
 ```bash
 sudo apt update
 sudo apt install -y iperf3 netperf sockperf nload tcpdump
-```
-
-### Step 2: Create Benchmark Script
-
-Create a file named `network_benchmark.sh` on both client VMs with the following content:
-
-```bash
-#!/bin/bash
-
-# Function to get architecture
-get_arch() {
-  arch=$(uname -m)
-  if [[ "$arch" == "x86_64" ]]; then
-    echo "Intel/AMD (x86_64)"
-  elif [[ "$arch" == "aarch64" ]]; then
-    echo "Arm (aarch64)"
-  else
-    echo "Unknown architecture: $arch"
-  fi
-}
-
-# Check if server IP is provided
-if [ $# -ne 1 ]; then
-  echo "Usage: $0 <server_ip>"
-  exit 1
-fi
-
-SERVER_IP=$1
-
-# Display system information
-echo "=== System Information ==="
-echo "Architecture: $(get_arch)"
-echo "CPU Model:"
-lscpu | grep "Model name"
-echo "Network Information:"
-ip addr | grep -E "inet |ether"
-echo ""
-
-# Function to run iperf3 test
-run_iperf3_test() {
-  local test_name=$1
-  local extra_args=$2
-  
-  echo "=== Running iperf3 $test_name test ==="
-  iperf3 -c $SERVER_IP -t 10 -J $extra_args | tee iperf3_${test_name}.json
-  echo ""
-}
-
-# Function to run netperf test
-run_netperf_test() {
-  local test_name=$1
-  local test_type=$2
-  local extra_args=$3
-  
-  echo "=== Running netperf $test_name test ==="
-  netperf -H $SERVER_IP -t $test_type $extra_args
-  echo ""
-}
-
-# Function to run sockperf test
-run_sockperf_test() {
-  local test_name=$1
-  local test_type=$2
-  local extra_args=$3
-  
-  echo "=== Running sockperf $test_name test ==="
-  sockperf $test_type -i $SERVER_IP --tcp -t 10 $extra_args
-  echo ""
-}
-
-# TCP Throughput Tests
-echo "=== TCP Throughput Tests ==="
-run_iperf3_test "tcp_upload" ""
-run_iperf3_test "tcp_download" "-R"
-run_iperf3_test "tcp_parallel" "-P 10"
-
-# UDP Tests
-echo "=== UDP Tests ==="
-run_iperf3_test "udp" "-u -b 1G"
-
-# TCP_RR (Request/Response) Test
-echo "=== TCP Request/Response Tests ==="
-run_netperf_test "tcp_rr" "TCP_RR" ""
-
-# TCP_CRR (Connect/Request/Response) Test
-echo "=== TCP Connect/Request/Response Tests ==="
-run_netperf_test "tcp_crr" "TCP_CRR" ""
-
-# Latency Tests
-echo "=== Latency Tests ==="
-run_sockperf_test "ping_pong" "ping-pong" ""
-run_sockperf_test "under_load" "under-load" "--mps=10000"
-
-echo "All network tests completed."
-```
-
-Make the script executable:
-
-```bash
-chmod +x network_benchmark.sh
 ```
 
 ### Step 3: Start Server Processes

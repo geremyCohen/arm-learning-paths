@@ -1,8 +1,6 @@
 ---
 title: Conclusion and Best Practices
 weight: 1100
-
-### FIXED, DO NOT MODIFY
 layout: learningpathall
 ---
 
