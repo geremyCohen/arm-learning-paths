@@ -22,37 +22,25 @@ Ensure you have:
 - Completed the repository setup from the previous chapter
 - Two Ubuntu systems with the bench_guide repository cloned
 
-### Step 1: Navigate to Directory
+### Step 1: Run the Benchmark
 
-Navigate to the benchmark directory:
+Navigate to the benchmark directory, install dependencies, and run the benchmark:
 
 ```bash
 cd bench_guide/100_cpu_utilization
-```
-
-### Step 2: Install Dependencies
-
-Run the setup script:
-
-```bash
 ./setup.sh
-```
-
-### Step 3: Run the Benchmark
-
-Execute the benchmark:
-
-```bash
 ./benchmark.sh
 ```
 
-### Step 4: Analyze the Results
+### Step 2: Analyze the Results
 
-Compare the results from both architectures, focusing on:
+The benchmark displays results in the terminal output and saves detailed CPU utilization data to `mpstat_output.txt` in the current directory. Run the same commands on both your Intel/AMD and Arm systems, then compare the results focusing on:
 
 1. **Overall CPU utilization**: How efficiently does each architecture handle the same workload?
 2. **Per-core distribution**: Are there differences in how the load is distributed across cores?
 3. **Scaling behavior**: How does utilization change as you increase the load from single-core to multi-core?
+
+You can review the detailed metrics by examining the `mpstat_output.txt` file on each system.
 
 ### Interpretation
 
