@@ -29,7 +29,7 @@ Ensure you have:
 Navigate to the benchmark directory:
 
 ```bash
-cd bench_guide/context_switching
+cd bench_guide/900_context_switching
 ```
 
 ### Step 2: Install Dependencies

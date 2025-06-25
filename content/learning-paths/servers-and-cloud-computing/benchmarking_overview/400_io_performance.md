@@ -29,7 +29,7 @@ Ensure you have:
 Navigate to the benchmark directory:
 
 ```bash
-cd bench_guide/io_performance
+cd bench_guide/400_io_performance
 ```
 
 ### Step 2: Install Dependencies

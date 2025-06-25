@@ -28,7 +28,7 @@ Ensure you have:
 Navigate to the benchmark directory:
 
 ```bash
-cd bench_guide/mixed_workload
+cd bench_guide/2100_mixed_workload
 ```
 
 ### Step 2: Install Dependencies

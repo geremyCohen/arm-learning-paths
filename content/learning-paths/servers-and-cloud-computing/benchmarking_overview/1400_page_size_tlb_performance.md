@@ -28,7 +28,7 @@ Ensure you have:
 Navigate to the benchmark directory:
 
 ```bash
-cd bench_guide/page_size_tlb
+cd bench_guide/1400_page_size_tlb
 ```
 
 ### Step 2: Install Dependencies

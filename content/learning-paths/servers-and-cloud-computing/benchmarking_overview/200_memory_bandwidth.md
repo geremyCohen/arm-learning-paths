@@ -27,7 +27,7 @@ Ensure you have:
 Navigate to the benchmark directory:
 
 ```bash
-cd bench_guide/memory_bandwidth
+cd bench_guide/200_memory_bandwidth
 ```
 
 ### Step 2: Install Dependencies

@@ -29,7 +29,7 @@ Ensure you have:
 Navigate to the benchmark directory:
 
 ```bash
-cd bench_guide/network_performance
+cd bench_guide/500_network_performance
 ```
 
 ### Step 2: Install Dependencies

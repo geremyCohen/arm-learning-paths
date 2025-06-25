@@ -28,7 +28,7 @@ Ensure you have:
 Navigate to the benchmark directory:
 
 ```bash
-cd bench_guide/branch_prediction
+cd bench_guide/1500_branch_prediction
 ```
 
 ### Step 2: Install Dependencies

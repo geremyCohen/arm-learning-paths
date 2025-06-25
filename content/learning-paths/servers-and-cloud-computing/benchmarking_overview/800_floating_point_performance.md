@@ -29,7 +29,7 @@ Ensure you have:
 Navigate to the benchmark directory:
 
 ```bash
-cd bench_guide/floating_point
+cd bench_guide/800_floating_point
 ```
 
 ### Step 2: Install Dependencies

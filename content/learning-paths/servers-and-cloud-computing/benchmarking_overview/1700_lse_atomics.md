@@ -23,7 +23,7 @@ Ensure you have:
 Navigate to the benchmark directory:
 
 ```bash
-cd bench_guide/atomic_operations
+cd bench_guide/1700_atomic_operations
 ```
 
 ### Step 2: Install Dependencies

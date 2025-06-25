@@ -28,7 +28,7 @@ Ensure you have:
 Navigate to the benchmark directory:
 
 ```bash
-cd bench_guide/arm_big_little
+cd bench_guide/2350_arm_big_little
 ```
 
 ### Step 2: Install Dependencies

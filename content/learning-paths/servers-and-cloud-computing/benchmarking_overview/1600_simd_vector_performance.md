@@ -32,7 +32,7 @@ Ensure you have:
 Navigate to the benchmark directory:
 
 ```bash
-cd bench_guide/simd_vector
+cd bench_guide/1600_simd_vector
 ```
 
 ### Step 2: Install Dependencies
