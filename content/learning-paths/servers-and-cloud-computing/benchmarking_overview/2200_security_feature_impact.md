@@ -28,7 +28,7 @@ Ensure you have:
 Navigate to the benchmark directory:
 
 ```bash
-cd bench_guide/security_impact
+cd bench_guide/2200_security_impact
 ```
 
 ### Step 2: Install Dependencies

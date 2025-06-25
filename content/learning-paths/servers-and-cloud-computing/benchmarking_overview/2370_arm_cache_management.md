@@ -28,7 +28,7 @@ Ensure you have:
 Navigate to the benchmark directory:
 
 ```bash
-cd bench_guide/arm_cache_management
+cd bench_guide/2370_arm_cache_management
 ```
 
 ### Step 2: Install Dependencies

@@ -29,7 +29,7 @@ Ensure you have:
 Navigate to the benchmark directory:
 
 ```bash
-cd bench_guide/system_latency
+cd bench_guide/600_system_latency
 ```
 
 ### Step 2: Install Dependencies

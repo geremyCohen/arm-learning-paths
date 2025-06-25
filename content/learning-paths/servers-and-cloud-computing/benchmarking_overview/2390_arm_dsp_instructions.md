@@ -28,7 +28,7 @@ Ensure you have:
 Navigate to the benchmark directory:
 
 ```bash
-cd bench_guide/arm_dsp_instructions
+cd bench_guide/2390_arm_dsp_instructions
 ```
 
 ### Step 2: Install Dependencies

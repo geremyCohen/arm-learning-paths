@@ -28,7 +28,7 @@ Ensure you have:
 Navigate to the benchmark directory:
 
 ```bash
-cd bench_guide/arm_pointer_authentication
+cd bench_guide/2380_arm_pointer_authentication
 ```
 
 ### Step 2: Install Dependencies

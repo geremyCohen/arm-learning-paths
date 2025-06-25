@@ -28,7 +28,7 @@ Ensure you have:
 Navigate to the benchmark directory:
 
 ```bash
-cd bench_guide/arm_crypto_extensions
+cd bench_guide/2250_arm_crypto_extensions
 ```
 
 ### Step 2: Install Dependencies

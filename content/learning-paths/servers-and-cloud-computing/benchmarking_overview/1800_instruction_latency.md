@@ -28,7 +28,7 @@ Ensure you have:
 Navigate to the benchmark directory:
 
 ```bash
-cd bench_guide/instruction_latency
+cd bench_guide/1800_instruction_latency
 ```
 
 ### Step 2: Install Dependencies

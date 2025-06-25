@@ -26,7 +26,7 @@ Ensure you have:
 Navigate to the benchmark directory:
 
 ```bash
-cd bench_guide/compiler_optimizations
+cd bench_guide/2400_compiler_optimizations
 ```
 
 ### Step 2: Install Dependencies

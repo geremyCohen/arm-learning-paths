@@ -27,7 +27,7 @@ Ensure you have:
 Navigate to the benchmark directory:
 
 ```bash
-cd bench_guide/cpu_utilization
+cd bench_guide/100_cpu_utilization
 ```
 
 ### Step 2: Install Dependencies

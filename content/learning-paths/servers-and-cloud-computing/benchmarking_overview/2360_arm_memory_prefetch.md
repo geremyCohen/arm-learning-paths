@@ -28,7 +28,7 @@ Ensure you have:
 Navigate to the benchmark directory:
 
 ```bash
-cd bench_guide/arm_memory_prefetch
+cd bench_guide/2360_arm_memory_prefetch
 ```
 
 ### Step 2: Install Dependencies

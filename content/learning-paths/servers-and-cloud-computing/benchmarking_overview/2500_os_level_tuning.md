@@ -26,7 +26,7 @@ Ensure you have:
 Navigate to the benchmark directory:
 
 ```bash
-cd bench_guide/os_level_tuning
+cd bench_guide/2500_os_level_tuning
 ```
 
 ### Step 2: Install Dependencies

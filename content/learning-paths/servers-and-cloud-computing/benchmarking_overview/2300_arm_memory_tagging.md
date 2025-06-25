@@ -28,7 +28,7 @@ Ensure you have:
 Navigate to the benchmark directory:
 
 ```bash
-cd bench_guide/arm_memory_tagging
+cd bench_guide/2300_arm_memory_tagging
 ```
 
 ### Step 2: Install Dependencies

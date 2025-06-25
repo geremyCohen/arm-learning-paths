@@ -28,7 +28,7 @@ Ensure you have:
 Navigate to the benchmark directory:
 
 ```bash
-cd bench_guide/cache_performance
+cd bench_guide/300_cache_performance
 ```
 
 ### Step 2: Install Dependencies
