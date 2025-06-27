@@ -10,8 +10,8 @@ key_ip:
 maintopic: true
 operatingsystems_filter:
 - Android: 1
-- Baremetal: 29
-- Linux: 27
+- Baremetal: 30
+- Linux: 28
 - macOS: 6
 - RTOS: 9
 - Windows: 4
@@ -20,7 +20,7 @@ subjects_filter:
 - Containers and Virtualization: 6
 - Embedded Linux: 4
 - Libraries: 3
-- ML: 12
+- ML: 14
 - Performance and Architecture: 21
 - RTOS Fundamentals: 4
 - Security: 2
@@ -28,7 +28,8 @@ subjects_filter:
 subtitle: Learn best practices for microcontroller development
 title: Embedded and Microcontrollers
 tools_software_languages_filter:
-- Arduino: 1
+- AI: 1
+- Arduino: 2
 - Arm Compiler for Embedded: 7
 - Arm Compiler for Linux: 1
 - Arm Compute Library: 1
@@ -50,6 +51,8 @@ tools_software_languages_filter:
 - DetectNet: 1
 - Docker: 9
 - DSTREAM: 2
+- Edge AI: 1
+- Edge Impulse: 1
 - ExecuTorch: 2
 - Fixed Virtual Platform: 9
 - FPGA: 1
@@ -60,6 +63,7 @@ tools_software_languages_filter:
 - GitHub: 3
 - GitLab: 1
 - Himax SDK: 1
+- Hugging Face: 3
 - IP Explorer: 4
 - Jupyter Notebook: 1
 - K3s: 1
@@ -67,6 +71,7 @@ tools_software_languages_filter:
 - Keil MDK: 3
 - Kubernetes: 1
 - LLM: 2
+- MCP: 1
 - MDK: 1
 - MPS3: 1
 - MXNet: 1
@@ -74,10 +79,10 @@ tools_software_languages_filter:
 - NumPy: 1
 - Paddle: 1
 - Porcupine: 1
-- Python: 5
+- Python: 6
 - PyTorch: 2
 - QEMU: 1
-- Raspberry Pi: 5
+- Raspberry Pi: 6
 - Remote.It: 1
 - RTX: 2
 - Runbook: 4
@@ -85,7 +90,7 @@ tools_software_languages_filter:
 - STM32: 2
 - TensorFlow: 3
 - TensorRT: 1
-- tinyML: 1
+- tinyML: 2
 - Trusted Firmware: 3
 - TrustZone: 2
 - TVMC: 1
