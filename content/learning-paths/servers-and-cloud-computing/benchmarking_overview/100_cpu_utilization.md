@@ -4,34 +4,44 @@ weight: 100
 layout: learningpathall
 ---
 
-## Understanding CPU Utilization
+## Why CPU Utilization Matters
 
-CPU utilization is one of the most fundamental metrics for evaluating system performance. It represents the percentage of time the CPU spends executing non-idle tasks. Understanding CPU utilization helps identify whether your application is CPU-bound and how efficiently it uses available processing resources across different architectures.
+CPU utilization is a critical metric for understanding how effectively your workloads use available CPU resources. Sustained high utilization (near 100%) indicates a CPU-bound workload, while lower utilization can point to I/O, memory, or synchronization bottlenecks. Comparing utilization across architectures helps you select the platform best suited to your workload.
 
-When comparing Intel/AMD (x86) versus Arm architectures, CPU utilization patterns can reveal important differences in how each architecture handles your workloads. While the metric itself is architecture-agnostic, the underlying efficiency and behavior can vary significantly.
+## Key Architecture Differences (x86 vs Arm)
 
-For more detailed information about CPU utilization, you can refer to:
-- [Linux Performance Analysis with mpstat](https://www.brendangregg.com/blog/2014-06-26/linux-load-averages.html)
-- [Understanding CPU Load](https://scoutapm.com/blog/understanding-load-averages)
+- Intel x86 with SMT/Hyper-Threading presents two logical threads per physical core. SMT can boost parallel throughput by hiding pipeline stalls, but shares core resources across threads.
+- Arm server cores (Neoverse-N1, V1) operate single-threaded per core. Each software thread maps one-to-one to a physical core, delivering predictable per-core performance and linear scaling without resource contention.
+
+## Running the Benchmark via the Visualizer
+
+1. Launch the Visualizer UI (e.g., run `bench_guide/visualizer/server`).
+2. In the UI, select **100_cpu_utilization** from the **Benchmark** dropdown.
+3. Choose your target ARM and Intel instances.
+4. Click **Run Benchmark** and wait for all tests (full, half, single) to complete.
+5. Click **View Report** to open the interactive HTML report with CPU utilization charts and detailed metrics.
 
 ## What the CPU Benchmark Actually Does
 
-The `cpu_benchmark.sh` script performs a comprehensive CPU utilization analysis using three distinct stress-ng workloads:
+The `cpu_benchmark.sh` script walks through three key stress-ng scenarios to highlight different CPU utilization patterns. Below are conversational descriptions of each test, with the exact stress-ng invocation shown as a code block.
 
-### 1. **Full Load Test** (`stress-ng --cpu $(nproc)`)
-- **Purpose**: Saturates all available CPU cores to measure maximum processing capacity
-- **What it measures**: How efficiently each architecture handles compute-intensive tasks when all cores are utilized
-- **Why it matters**: Reveals the true processing power and thermal characteristics under maximum load
+### 1. Full Load Test
+```bash
+stress-ng --cpu $(nproc) --timeout $TEST_DURATION --metrics-brief
+```
+In this test, stress-ng spawns workers equal to the total number of CPU cores. This fully saturates the system and reveals maximum throughput and thermal behavior under heavy, sustained compute load.
 
-### 2. **Half Load Test** (`stress-ng --cpu $(($(nproc) / 2))`)
-- **Purpose**: Uses half the available cores to simulate partial system load
-- **What it measures**: How each architecture handles moderate workloads and core scaling
-- **Why it matters**: Most real-world applications don't use all cores simultaneously - this test shows practical performance
+### 2. Half Load Test
+```bash
+stress-ng --cpu $(($(nproc) / 2)) --timeout $TEST_DURATION --metrics-brief
+```
+Here we simulate a moderate load by using half of the available cores. On multi-core systems, this shows how well the CPU scales when not fully loaded. On single-core systems, the script clamps the worker count to one to avoid a zero-worker scenario, effectively mirroring a full-load test.
 
-### 3. **Single Core Test** (`stress-ng --cpu 1`)
-- **Purpose**: Stresses only one CPU core to measure single-threaded performance
-- **What it measures**: Per-core efficiency and single-threaded optimization
-- **Why it matters**: Many applications are single-threaded or have single-threaded bottlenecks
+### 3. Single Core Test
+```bash
+stress-ng --cpu 1 --timeout $TEST_DURATION --metrics-brief
+```
+This test restricts stress-ng to a single worker, allowing you to measure per-core performance and single-threaded efficiency. It helps identify bottlenecks that only show up when one core is handling the entire workload.
 
 ## Understanding the Architecture Differences
 
@@ -44,16 +54,64 @@ The `cpu_benchmark.sh` script performs a comprehensive CPU utilization analysis 
 
 ### Half Load Results - The Key Difference
 - **Intel**: 91.9% CPU utilization (still nearly maxed out)
-- **Arm**: 45.7% CPU utilization (exactly half)
-- **Why this happens**: 
-  - Intel system has 1 core, so "half load" still means 1 stress-ng worker on 1 core = full utilization
-  - Arm system has 2 cores, so "half load" means 1 stress-ng worker on 2 cores = 50% utilization
-  - This demonstrates **perfect core scaling** on the Arm system
+- **Arm**: 45.7% CPU utilization (~50%)
+- **Why this happens**:
+  - The benchmark script originally did integer division for half-load (`nproc/2`), so on a 1-core Intel box that yields 0. Stress-ng defaults to at least one worker, effectively still saturating the single core. The script has been updated to clamp half-load to a minimum of one core.
+  - On the 2-core Arm system, one stress-ng worker runs across two cores, giving ~50% of capacity. Measurement and OS scheduling overhead (and how we average per-core busy%) yield ~46% rather than a perfect 50%.
+  - This both shows **linear core-scaling** on Arm and highlights how tooling/OS behavior can affect the exact numbers.
 
 ### Single Core Results
 - **Intel**: 91.5% CPU utilization
-- **Arm**: 45.8% CPU utilization
-- **Analysis**: Similar pattern - Intel's single core is fully utilized, while Arm distributes the single-threaded load across its 2 cores
+- **Arm**: 45.8% CPU utilization (~46%)
+- **Analysis**:
+  - On Intel the single stress-ng worker fully saturates the lone core.
+  - On Arm the OS schedules that one worker on a single core (per-core breakdown shows one ≈91% busy and the other ≈1% idle), averaging ~46%. This illustrates per-core efficiency differences and how scheduling affects the overall average.
+
+### Example 2: comparing ARM Neoverse-V1 (16 cores) vs Intel Xeon Platinum 8488C (32 cores):
+
+### Full Load Results
+- **ARM c7g.4xlarge**: 91.2% CPU utilization
+- **Intel c7i.8xlarge**: 90.9% CPU utilization
+- **Analysis**: Both platforms exhibit similar high utilization when fully loaded, showing effective core saturation under maximum stress.
+
+### Half Load Results - The Key Difference
+- **ARM**: 45.6% CPU utilization
+- **Intel**: 45.5% CPU utilization
+- **Why this happens**:
+  - On ARM, 8 stress-ng workers on 16 cores yield ~50% capacity; measurement/averaging overhead results in ~45.6%.
+  - On Intel, 16 stress-ng workers on 32 cores yield ~50% capacity; measurement overhead results in ~45.5%.
+  - Demonstrates linear core-scaling on both architectures and highlights how tool/OS measurement subtleties affect exact numbers.
+
+### Single Core Results
+- **ARM**: 5.8% CPU utilization
+- **Intel**: 2.9% CPU utilization
+- **Analysis**:
+  - A single stress-ng worker on 16-core ARM maps to one core, averaging 5.8% (ideal 6.25%) due to overhead.
+  - A single stress-ng worker on 32-core Intel maps to one core, averaging 2.9% (ideal 3.125%).
+  - Highlights the dilution effect of increasing core counts on single-threaded utilization and the underlying per-core performance difference.
+
+### Example 2: comparing ARM Neoverse-V1 (16 cores) vs Intel Xeon Platinum 8488C (32 cores):
+
+### Full Load Results
+- **ARM c7g.4xlarge**: 91.2% CPU utilization
+- **Intel c7i.8xlarge**: 90.9% CPU utilization
+- **Analysis**: Both platforms exhibit similar high utilization under full parallel load, showing that each architecture can effectively saturate all cores when maximally stressed.
+
+### Half Load Results - The Key Difference
+- **ARM**: 45.6% CPU utilization
+- **Intel**: 45.5% CPU utilization
+- **Why this happens**:
+  - On ARM, using 8 workers on 16 cores yields ~50% capacity; measurement/averaging overhead results in ~45.6%.
+  - On Intel, using 16 workers on 32 cores yields ~50% capacity; measurement overhead yields ~45.5%.
+  - Demonstrates linear core-scaling on both architectures and underscores how tooling/OS measurement subtleties affect exact values.
+
+### Single Core Results
+- **ARM**: 5.8% CPU utilization
+- **Intel**: 2.9% CPU utilization
+- **Analysis**:
+  - One stress-ng worker on 16-core ARM maps to one core, averaging 5.8% rather than the ideal 6.25% due to overhead.
+  - One stress-ng worker on 32-core Intel maps to one core, averaging 2.9% rather than the ideal 3.125%.
+  - This dilution effect shows how larger core counts reduce single-threaded utilization percentages and highlights per-core performance differences.
 
 ## Benchmarking Exercise
 
@@ -111,16 +169,18 @@ The benchmark creates multiple output files:
 
 **Architecture-Specific Behaviors:**
 
-- **Intel x86 Characteristics**: 
-  - Complex cores with high single-threaded performance
-  - May show high utilization even with reduced workloads due to fewer, more powerful cores
-  - Better suited for single-threaded or lightly-threaded applications
+- - **Intel x86 Characteristics**:
+-   - Complex cores with high single-threaded performance
+-   - May show high utilization even with reduced workloads due to fewer, more powerful cores
+-   - Better suited for single-threaded or lightly-threaded applications
+-   - Supports Simultaneous Multithreading (SMT/Hyper-Threading) on many Xeon CPUs, exposing multiple logical threads per physical core. SMT can boost throughput for parallel workloads but can also split per-core utilization across threads.
 
-- **Arm Characteristics**:
-  - Simpler, more efficient cores designed for parallel workloads
-  - Shows linear scaling with core count (50% load = 50% utilization)
-  - Better suited for highly-parallel, multi-threaded applications
-  - More predictable power consumption patterns
+- - **Arm Characteristics**:
+-   - Simpler, more efficient cores designed for parallel workloads
+-   - Shows linear scaling with core count (50% load = 50% utilization)
+-   - Better suited for highly-parallel, multi-threaded applications
+-   - More predictable power consumption patterns
+-   - Typically does not support SMT (Neoverse-N1 is single-threaded per core), so each software thread maps one-to-one to a physical core, yielding consistent per-core performance and predictable utilization.
 
 **The 91% vs 46% Difference Explained:**
 
