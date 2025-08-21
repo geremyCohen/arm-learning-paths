@@ -4,14 +4,96 @@ weight: 100
 layout: learningpathall
 ---
 
-## Why CPU Utilization Matters
+## Benchmarking CPU Utilization
+
+100 CPU Utilization is all about “how busy” the cores are (% busy, SMT effects, per-core scaling), with examples showing utilization curves and arithmetic averages. It answers the question “What does the % utilization number really mean, and how do Arm and x86 differ in reporting it?”
 
 CPU utilization is a critical metric for understanding how effectively your workloads use available CPU resources. Sustained high utilization (near 100%) indicates a CPU-bound workload, while lower utilization can point to I/O, memory, or synchronization bottlenecks. Comparing utilization across architectures helps you select the platform best suited to your workload.
 
-## Key Architecture Differences (x86 vs Arm)
+## Microarchitectural Components
 
-- Intel x86 with SMT/Hyper-Threading presents two logical threads per physical core. SMT can boost parallel throughput by hiding pipeline stalls, but shares core resources across threads.
-- Arm server cores (Neoverse-N1, V1) operate single-threaded per core. Each software thread maps one-to-one to a physical core, delivering predictable per-core performance and linear scaling without resource contention.
+Before diving into utilization metrics, it’s important to understand the hardware building blocks that underpin CPU behavior. We will introduce each component in order of dependency—from the CPU package down to the execution units—so you can see how higher-level concepts map to physical resources.
+
+- CPU
+- Core
+- Thread
+- Pipeline
+- Cache
+- Execution Unit
+
+### CPU
+A CPU (Central Processing Unit) is the physical processor package installed in your machine. It contains one or more independent processing cores and interfaces to memory and I/O.
+
+### Core
+A core is an individual processing engine within the CPU package. Each core has its own set of registers, pipelines, caches, and execution units, and can independently execute software threads.
+
+### Thread
+A thread is a sequence of instructions executed by a core. On x86 with SMT (Hyper-Threading), each physical core presents multiple logical threads (typically two), allowing the core to interleave work. On Arm Neoverse cores without SMT, one thread maps directly to one physical core.
+
+### Pipeline
+The pipeline is the staged sequence of hardware logic inside a core that processes instructions. Common pipeline stages include fetch, decode, execute, and write-back. Pipelines enable overlapping of instruction execution but can stall on cache misses or branch mispredictions. A pipeline stall is a pause in the instruction flow when a stage cannot proceed—often due to waiting for data to be fetched from memory or resolving a branch decision—forcing subsequent stages to wait until the condition is cleared.
+
+#### Pipeline Stalls
+
+##### x86
+On x86, each thread context shares the pipeline, caches, and execution units within a core. When one thread experiences a pipeline stall—due to a cache miss or branch misprediction—its pipeline stages are idle. SMT interleaves instructions from the sibling thread into those idle slots, masking the stall and boosting overall throughput. From the OS’s viewpoint, the stalled logical CPU shows near 0% busy time, while the sibling context can exceed 1.0× single-thread throughput (often reaching around 1.2×–1.3×) as it consumes the freed cycles. The stalled context is not sleeping but waiting for its required data or branch resolution.
+
+##### Arm
+On Arm cores without SMT, all microarchitectural components serve a single thread at a time. If the operating system schedules more software threads than there are physical cores, it divides execution into time slices and performs context switches between them. Each switch incurs overhead—saving/restoring registers, refilling pipelines, and reloading cache data—which adds latency and reduces effective instruction throughput. Although per-core utilization may still report near-100% busy time, some of that busy time is consumed by switching overhead rather than by executing application instructions.
+
+#### Summary: SMT vs. Time Slicing
+- SMT interleaves two hardware thread contexts within a core to hide pipeline stalls without scheduler overhead, at the risk of resource contention between threads.
+- Time slicing shares the core via OS-level context switches, incurring register, pipeline, and cache overhead so utilization includes scheduling work, not just application execution.
+
+### Cache
+Caches are small, fast memory stores located close to the core. They hold recently used data and instructions to reduce latency compared to fetching from main memory. Typical cache hierarchies include L1 (per core), L2 (per core or shared among a few cores), and L3 (shared across many cores).
+
+### Execution Unit
+Execution units are the functional blocks inside a core that perform the actual computation and data movement—such as integer ALUs, floating-point units, and load/store units. Multiple execution units allow a core to perform several operations in parallel each cycle.
+
+Understanding these components and their relationships lays the groundwork for interpreting CPU and thread utilization metrics accurately, and for grasping how SMT and time-slicing interact with the underlying hardware.
+
+## How CPU Utilization may vary across Arm and x86 architectures
+
+Intel x86 CPUs support simultaneous multithreading (SMT) or Hyper-Threading, exposing two logical threads per physical core. This can boost parallel throughput by hiding pipeline stalls, but it also means a single-threaded workload can still saturate a physical core’s resources and appear highly utilized even when only one thread is running.
+
+### Time-slicing overhead vs. SMT
+
+SMT on x86 enables two logical threads to share a core’s microarchitectural components introduced above. By interleaving instructions, SMT can hide pipeline stalls and boost utilization, but when both threads compete for caches or execution units, resource contention arises and per-thread performance drops even though overall busy time stays high.
+
+Arm cores without SMT dedicate all microarchitectural components to a single thread at a time. When the OS schedules more threads than there are cores, it divides execution into time slices. Each context switch incurs overhead—saving/restoring registers, refilling pipelines, and reloading cache data—which reduces effective throughput and adds latency. Utilization metrics still report the core as busy during switching, so reported utilization can remain high while actual application work per thread decreases.
+
+  
+### SMT Utilization and Per-Core Scaling
+
+To illustrate how x86 Hyper-Threading (SMT) and Arm’s one-thread-per-core design influence both utilization and throughput, we use simple ASCII bar charts normalized per system. In each case, the throughput of one thread per physical core is defined as 1.0× baseline (100%). Bars longer than 1.0× indicate SMT-driven speedup; bars shorter than 1.0× indicate resource contention or time-slicing overhead.
+
+
+#### 16-Core System
+
+**T=16 (One Thread per Core).** With one thread per physical core, both x86 and Arm saturate all cores—x86 without SMT, Arm natively—achieving similar utilization (~90–95%) and matching throughput, normalized to 1.0×:
+
+```text
+16-Core, T=16 (One Thread per Core)
+x86 SMT: ##########    1.0×
+Arm     : ##########    1.0×
+```
+
+**T=32 (Compute-Bound).** On x86, SMT doubles the logical thread count and yields ~1.3× throughput over the 16-thread baseline. Arm remains at 1.0× since it cannot exceed physical core count:
+
+```text
+16-Core, T=32 (Compute-Bound)
+x86 SMT: ############# 1.3×
+Arm     : ##########    1.0×
+```
+
+**T=32 (Cache-Bound).** When 32 threads contend for cache, x86 SMT threads thrash shared resources and drop to ~0.9× throughput. Arm’s one-thread-per-core model avoids SMT-induced contention, preserving 1.0×:
+
+```text
+16-Core, T=32 (Cache-Bound)
+x86 SMT: #########     0.9×
+Arm     : ##########    1.0×
+```
 
 ## Running the Benchmark via the Visualizer
 
@@ -25,19 +107,19 @@ CPU utilization is a critical metric for understanding how effectively your work
 
 The `cpu_benchmark.sh` script walks through three key stress-ng scenarios to highlight different CPU utilization patterns. Below are conversational descriptions of each test, with the exact stress-ng invocation shown as a code block.
 
-### 1. Full Load Test
+### Full Load Test
 ```bash
 stress-ng --cpu $(nproc) --timeout $TEST_DURATION --metrics-brief
 ```
 In this test, stress-ng spawns workers equal to the total number of CPU cores. This fully saturates the system and reveals maximum throughput and thermal behavior under heavy, sustained compute load.
 
-### 2. Half Load Test
+### Half Load Test
 ```bash
 stress-ng --cpu $(($(nproc) / 2)) --timeout $TEST_DURATION --metrics-brief
 ```
 Here we simulate a moderate load by using half of the available cores. On multi-core systems, this shows how well the CPU scales when not fully loaded. On single-core systems, the script clamps the worker count to one to avoid a zero-worker scenario, effectively mirroring a full-load test.
 
-### 3. Single Core Test
+### Single Core Test
 ```bash
 stress-ng --cpu 1 --timeout $TEST_DURATION --metrics-brief
 ```
