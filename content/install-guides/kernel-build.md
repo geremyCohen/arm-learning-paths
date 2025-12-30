@@ -100,13 +100,13 @@ Run `./scripts/kernel_build_and_install.sh --help` anytime for the exhaustive li
 ```bash
 ./scripts/kernel_build_and_install.sh --demo-default-build
 ```
-- Builds `v6.18.1`, populates `~/kernels/6.18.1`, and never touches Docker or Fastpath configs.
+This demo builds `v6.18.1`, populates `~/kernels/6.18.1`, and leaves Docker as well as Fastpath configs untouched.
 
 #### 2. Specify your own tag
 ```bash
 ./scripts/kernel_build_and_install.sh --tags v6.19-rc1 --assume-yes
 ```
-- Same behavior as the demo but targeting a release candidate instead of the pinned stable tag.
+This behaves like the demo while targeting a release candidate instead of the pinned stable tag.
 
 #### 3. Produce both flat artifacts and Debian packages
 ```bash
@@ -115,7 +115,7 @@ Run `./scripts/kernel_build_and_install.sh --help` anytime for the exhaustive li
   --assume-yes \
   --include-bindeb-pkg
 ```
-- Outputs `Image.gz`, `modules.tar.xz`, `perf.tar.xz`, and `.deb` files (headers, image, dbg) under `~/kernels/6.18.1`.
+Running this command outputs `Image.gz`, `modules.tar.xz`, `perf.tar.xz`, and `.deb` files (headers, image, dbg) under `~/kernels/6.18.1`.
 
 #### 4. Build and immediately install (single tag)
 ```bash
@@ -124,7 +124,7 @@ Run `./scripts/kernel_build_and_install.sh --help` anytime for the exhaustive li
   --assume-yes \
   --kernel-install true
 ```
-- Installs the freshly built kernel, regenerates initramfs, updates GRUB, and prompts for reboot.
+This command installs the freshly built kernel, regenerates initramfs, updates GRUB, and prompts for reboot.
 
 #### 5. Multi-tag build + targeted install
 ```bash
@@ -133,7 +133,7 @@ Run `./scripts/kernel_build_and_install.sh --help` anytime for the exhaustive li
   --assume-yes \
   --kernel-install v6.18.1
 ```
-- Both kernels build in parallel; only `v6.18.1` is installed. Artifacts for `v6.19-rc1` remain available under `~/kernels`.
+Both kernels build in parallel, but only `v6.18.1` is installed, leaving the `v6.19-rc1` artifacts untouched under `~/kernels`.
 
 #### 6. 64 KB page-size build and install
 ```bash
@@ -144,7 +144,7 @@ Run `./scripts/kernel_build_and_install.sh --help` anytime for the exhaustive li
   --kernel-install true \
   --append-to-kernel-version "-64k"
 ```
-- Produces a 64 KB build, installs it, and appends “-64k” to the reported kernel version to make verification easier.
+This variation produces a 64 KB build, installs it, and appends “-64k” to the reported kernel version so verification is straightforward.
 
 #### 7. Install-only workflow (reusing flat artifacts)
 ```bash
@@ -153,7 +153,7 @@ Run `./scripts/kernel_build_and_install.sh --help` anytime for the exhaustive li
   --install-format flat \
   --assume-yes
 ```
-- Skips compilation and directly installs the saved `Image.gz`, `modules.tar.xz`, and `config` from a prior run. Use this when the directory contains tarballs rather than `.deb` packages.
+Instead of compiling, the script installs the saved `Image.gz`, `modules.tar.xz`, and `config` from a prior run, which is ideal when the directory contains flat artifacts rather than `.deb` packages.
 
 #### 8. Install-only with Debian packages
 ```bash
@@ -162,7 +162,7 @@ Run `./scripts/kernel_build_and_install.sh --help` anytime for the exhaustive li
   --install-format deb \
   --assume-yes
 ```
-- Installs the `.deb` artifacts that were created earlier via `--include-bindeb-pkg` (expects `linux-image-*`, `linux-headers-*`, etc. in the source directory).
+Here the script installs the `.deb` artifacts produced earlier via `--include-bindeb-pkg`, expecting files such as `linux-image-*` and `linux-headers-*` to exist in the source directory.
 
 #### 9. Install-only with auto-detection
 ```bash
@@ -170,7 +170,7 @@ Run `./scripts/kernel_build_and_install.sh --help` anytime for the exhaustive li
   --install-from ~/kernels/6.18.1 \
   --assume-yes
 ```
-- Lets the script auto-detect whether the directory contains flat artifacts or `.deb` files, simplifying reuse when you are not sure which format is present.
+This form lets the script auto-detect whether the directory contains flat artifacts or `.deb` files, which simplifies reuse when you are not sure which format is present.
 
 ---
 
@@ -186,7 +186,7 @@ Fastpath workflows always rely on the flat artifact set (`Image.gz`, `modules.ta
 ```bash
 ./scripts/kernel_build_and_install.sh --demo-fastpath-build
 ```
-- Builds `v6.18.1` and `v6.19-rc1` with Fastpath configs enabled, `--assume-yes`, and Docker installed automatically if needed.
+The demo builds `v6.18.1` and `v6.19-rc1` with Fastpath configs enabled, runs with `--assume-yes`, and installs Docker automatically if the host lacks it.
 
 #### 2. Custom tags with Fastpath enabled
 ```bash
@@ -195,7 +195,7 @@ Fastpath workflows always rely on the flat artifact set (`Image.gz`, `modules.ta
   --fastpath true \
   --assume-yes
 ```
-- Equivalent to the demo but explicit, making it easy to swap tag sets or add more flags.
+This explicit version mirrors the demo while making it easy to swap tag sets or add additional flags.
 
 #### 3. Fastpath build + install
 ```bash
@@ -206,7 +206,7 @@ Fastpath workflows always rely on the flat artifact set (`Image.gz`, `modules.ta
   --kernel-install v6.19-rc1 \
   --kernel-command-line "console=ttyAMA0 earlycon"
 ```
-- Both kernels build; the RC tag is installed with a custom kernel command line suitable for Fastpath testing harnesses.
+Both kernels build, but the release-candidate tag gets installed with the custom kernel command line needed by the Fastpath testing harness.
 
 #### 4. Install-only Fastpath workflow
 ```bash
@@ -216,7 +216,7 @@ Fastpath workflows always rely on the flat artifact set (`Image.gz`, `modules.ta
   --fastpath true \
   --assume-yes
 ```
-- Reinstalls Fastpath artifacts from a previous run. Handy when refreshing a SUT without waiting for another build.
+Use this command to reinstall Fastpath artifacts from a previous run when you want to refresh a SUT without waiting for another build.
 
 ---
 
