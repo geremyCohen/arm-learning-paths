@@ -68,6 +68,7 @@ The sections below start simple (demo flags) and progress toward advanced scenar
 | `--demo-default-build` | Shortcut: builds `v6.18.1` with default configs and leaves Fastpath disabled. |
 | `--tag <tag>` / `--tags <list>` / `--tag-latest` | Select one or more kernel tags. Multiple tags build in parallel; the latest stable release can be added via `--tag-latest`. |
 | `--install-from <dir>` / `--install-format <flat\|deb\|auto>` | Install an existing build (flat artifacts or `.deb` packages) without recompiling. |
+| `--dry-run` | Generate a self-contained plan script (stored in `/tmp/kernel_plan_*.sh`) with the resolved arguments and exit without running the build. |
 | `--kernel-install [tag\|bool]` | Install a kernel right after it finishes building. When multiple tags build, provide the specific tag to install. |
 | `--change-to-64k <bool>` | Generate a 64 KB page-size kernel. Often combined with the install flags to test high-page builds. |
 | `--config-file <path>` | Reuse a captured stock config instead of `/boot/config-$(uname -r)`. |
@@ -159,6 +160,14 @@ Here the script installs the `.deb` artifacts produced earlier via `--include-bi
   --install-from ~/kernels/6.18.1
 ```
 This form lets the script auto-detect whether the directory contains flat artifacts or `.deb` files, which simplifies reuse when you are not sure which format is present.
+
+#### 10. Generate a runnable plan without executing
+```bash
+./scripts/kernel_build_and_install.sh \
+  --tags v6.18.1 \
+  --dry-run
+```
+Instead of performing the build, this command writes a self-contained plan such as `/tmp/kernel_plan_v6.18.1_<hash>.sh` that embeds the current script plus the resolved arguments (minus `--dry-run`). Running that plan file later—on the same host or another system with the required dependencies—replays the exact workflow.
 
 ---
 
