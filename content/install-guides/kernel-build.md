@@ -34,25 +34,21 @@ This guide uses an AWS `c8g.24xlarge` instance for demonstration. Any sufficient
 ### Operating System ###
 Ubuntu 24.04 LTS (64-bit Arm) is the recommended OS for this guide. Other distributions may work but are not officially supported (yet).  If you find a different distro that works well, or you'd like to request support for a different setup, please open an issue or pull request.
 
-# Install the dependencies
+# Install and Clone
 
 With your build instance running and accessible via SSH, install the required dependencies:
 
 ```bash
 sudo apt update
-sudo apt install -y git python3 python3-pip python3-venv build-essential bc rsync dwarves flex bison libssl-dev libelf-dev
-```
+sudo apt install -y git python3 python3-pip python3-venv build-essential bc rsync dwarves flex bison libssl-dev libelf-dev btop
 
-Next, clone the installer repository under your home directory:
-
-```bash
 cd
 git clone https://github.com/geremyCohen/arm_kernel_install_guide.git ~/arm_kernel_install_guide
 cd ~/arm_kernel_install_guide
 chmod +x scripts/*.sh
 ```
 
-All commands in this guide assume you are inside this directory. The important script is `scripts/kernel_build_and_install.sh`, which orchestrates cloning the upstream kernel tree, configuring tuxmake, building artifacts, and optionally installing the kernel.
+All commands in this guide assume you are inside this directory. The important script is `scripts/kernel_build_and_install.sh`, which orchestrates cloning the upstream kernel tree, configuring tuxmake, building artifacts, and optionally installing the kernel. The script now runs non-interactively—once invoked it proceeds without confirmation prompts, and any install operation automatically reboots the system when it finishes.
 
 ## How do I build Arm kernels?
 
@@ -69,7 +65,7 @@ The sections below start simple (demo flags) and progress toward advanced scenar
 
 | Flag | Description |
 | --- | --- |
-| `--demo-default-build` | Shortcut: builds `v6.18.1` with default configs, `--assume-yes`, Fastpath disabled. |
+| `--demo-default-build` | Shortcut: builds `v6.18.1` with default configs and leaves Fastpath disabled. |
 | `--tag <tag>` / `--tags <list>` / `--tag-latest` | Select one or more kernel tags. Multiple tags build in parallel; the latest stable release can be added via `--tag-latest`. |
 | `--install-from <dir>` / `--install-format <flat\|deb\|auto>` | Install an existing build (flat artifacts or `.deb` packages) without recompiling. |
 | `--kernel-install [tag\|bool]` | Install a kernel right after it finishes building. When multiple tags build, provide the specific tag to install. |
@@ -79,13 +75,12 @@ The sections below start simple (demo flags) and progress toward advanced scenar
 | `--kernel-command-line <string>` | Override GRUB’s `GRUB_CMDLINE_LINUX` when installing a kernel. |
 | `--append-to-kernel-version <text>` | Attach custom suffixes to `EXTRAVERSION` (e.g., `--append "-lab"`). |
 | `--kernel-dir <path>` / `--output-base <path>` / `--venv-path <path>` | Control where the kernel git checkout lives, where artifacts are stored, and which Python venv hosts tuxmake. |
-| `--assume-yes` | Skip the interactive confirmation prompt. Any demo flag implies this option. |
 
 #### Fastpath usage flags
 
 | Flag | Description |
 | --- | --- |
-| `--demo-fastpath-build` | Shortcut: builds `v6.18.1` and `v6.19-rc1` with Fastpath configs enabled and `--assume-yes`. |
+| `--demo-fastpath-build` | Shortcut: builds `v6.18.1` and `v6.19-rc1` with Fastpath configs enabled. |
 | `--fastpath <bool>` | Manually enable/disable the Fastpath configuration overlay (installs Docker as needed). |
 
 Run `./scripts/kernel_build_and_install.sh --help` anytime for the exhaustive list.
@@ -104,15 +99,14 @@ This demo builds `v6.18.1`, populates `~/kernels/6.18.1`, and leaves Docker as w
 
 #### 2. Specify your own tag
 ```bash
-./scripts/kernel_build_and_install.sh --tags v6.19-rc1 --assume-yes
+./scripts/kernel_build_and_install.sh --tags v6.19-rc1
 ```
-This behaves like the demo while targeting a release candidate instead of the pinned stable tag.
+This behaves like the demo while targeting a release candidate instead of the pinned stable tag, and it still runs without any interactive prompts.
 
 #### 3. Produce both flat artifacts and Debian packages
 ```bash
 ./scripts/kernel_build_and_install.sh \
   --tags v6.18.1 \
-  --assume-yes \
   --include-bindeb-pkg
 ```
 Running this command outputs `Image.gz`, `modules.tar.xz`, `perf.tar.xz`, and `.deb` files (headers, image, dbg) under `~/kernels/6.18.1`.
@@ -121,37 +115,33 @@ Running this command outputs `Image.gz`, `modules.tar.xz`, `perf.tar.xz`, and `.
 ```bash
 ./scripts/kernel_build_and_install.sh \
   --tags v6.18.1 \
-  --assume-yes \
   --kernel-install true
 ```
-This command installs the freshly built kernel, regenerates initramfs, updates GRUB, and prompts for reboot.
+This command installs the freshly built kernel, regenerates initramfs, updates GRUB, and then reboots automatically.
 
 #### 5. Multi-tag build + targeted install
 ```bash
 ./scripts/kernel_build_and_install.sh \
   --tags v6.18.1,v6.19-rc1 \
-  --assume-yes \
   --kernel-install v6.18.1
 ```
-Both kernels build in parallel, but only `v6.18.1` is installed, leaving the `v6.19-rc1` artifacts untouched under `~/kernels`.
+Both kernels build in parallel, but only `v6.18.1` is installed (followed by an automatic reboot), leaving the `v6.19-rc1` artifacts untouched under `~/kernels`.
 
 #### 6. 64 KB page-size build and install
 ```bash
 ./scripts/kernel_build_and_install.sh \
   --tags v6.18.1 \
-  --assume-yes \
   --change-to-64k true \
   --kernel-install true \
   --append-to-kernel-version "-64k"
 ```
-This variation produces a 64 KB build, installs it, and appends “-64k” to the reported kernel version so verification is straightforward.
+This variation produces a 64 KB build, installs it, appends “-64k” to the reported kernel version, and reboots automatically so you can verify the new settings.
 
 #### 7. Install-only workflow (reusing flat artifacts)
 ```bash
 ./scripts/kernel_build_and_install.sh \
   --install-from ~/kernels/6.18.1 \
-  --install-format flat \
-  --assume-yes
+  --install-format flat
 ```
 Instead of compiling, the script installs the saved `Image.gz`, `modules.tar.xz`, and `config` from a prior run, which is ideal when the directory contains flat artifacts rather than `.deb` packages.
 
@@ -159,16 +149,14 @@ Instead of compiling, the script installs the saved `Image.gz`, `modules.tar.xz`
 ```bash
 ./scripts/kernel_build_and_install.sh \
   --install-from ~/kernels/6.18.1 \
-  --install-format deb \
-  --assume-yes
+  --install-format deb
 ```
 Here the script installs the `.deb` artifacts produced earlier via `--include-bindeb-pkg`, expecting files such as `linux-image-*` and `linux-headers-*` to exist in the source directory.
 
 #### 9. Install-only with auto-detection
 ```bash
 ./scripts/kernel_build_and_install.sh \
-  --install-from ~/kernels/6.18.1 \
-  --assume-yes
+  --install-from ~/kernels/6.18.1
 ```
 This form lets the script auto-detect whether the directory contains flat artifacts or `.deb` files, which simplifies reuse when you are not sure which format is present.
 
@@ -176,9 +164,9 @@ This form lets the script auto-detect whether the directory contains flat artifa
 
 ## Fastpath Usage
 
-Fastpath builds use the same tuxmake pipelines but add a configuration fragment that exposes the interfaces needed by the Fastpath testing framework (extra headers, perf tooling, and Docker so Fastpath can drive the host). All of the general-purpose flags remain compatible—feel free to mix `--kernel-install`, `--install-from`, `--change-to-64k`, custom configs, and directory overrides with Fastpath runs just as you would for general usage. Remember that `--fastpath true` (or the demo flag that implies it) will install Docker automatically when it is missing, which is necessary for Fastpath tooling to manage the SUT; disabling Fastpath is technically allowed, but it defeats the purpose of this workflow.
+Fastpath builds use the same tuxmake pipelines but add a configuration fragment that exposes the interfaces needed by the Fastpath testing framework (extra headers, perf tooling, and Docker so Fastpath can drive the host). Fastpath workflows are build-only: do not combine `--fastpath true` (or the demo shortcut) with `--kernel-install` or any `--install-from` commands. Instead, let the build finish, copy the flat artifacts (`Image.gz`, `modules.tar.xz`, and `config`) to the Fastpath host, and let the Fastpath tooling handle deployment to the SUT. Docker is still installed automatically whenever Fastpath mode is enabled so the Fastpath controller can manage the host.
 
-Fastpath workflows always rely on the flat artifact set (`Image.gz`, `modules.tar.xz`, and the matching `config`). Even if you specify packaging flags such as `--include-bindeb-pkg`, plan on using the flat files when Fastpath is enabled.
+Fastpath runs can still take advantage of tuning flags such as `--change-to-64k`, alternate configs, or custom output directories. Even if you specify packaging flags such as `--include-bindeb-pkg`, Fastpath tests consume the flat artifacts.
 
 ### Fastpath examples
 
@@ -186,37 +174,24 @@ Fastpath workflows always rely on the flat artifact set (`Image.gz`, `modules.ta
 ```bash
 ./scripts/kernel_build_and_install.sh --demo-fastpath-build
 ```
-The demo builds `v6.18.1` and `v6.19-rc1` with Fastpath configs enabled, runs with `--assume-yes`, and installs Docker automatically if the host lacks it.
+The demo builds `v6.18.1` and `v6.19-rc1` with Fastpath configs enabled and installs Docker automatically if the host lacks it.
 
 #### 2. Custom tags with Fastpath enabled
 ```bash
 ./scripts/kernel_build_and_install.sh \
   --tags v6.18.1,v6.19-rc1 \
-  --fastpath true \
-  --assume-yes
+  --fastpath true
 ```
 This explicit version mirrors the demo while making it easy to swap tag sets or add additional flags.
 
-#### 3. Fastpath build + install
+#### 3. Fastpath build with additional tuning
 ```bash
 ./scripts/kernel_build_and_install.sh \
   --tags v6.18.1,v6.19-rc1 \
   --fastpath true \
-  --assume-yes \
-  --kernel-install v6.19-rc1 \
-  --kernel-command-line "console=ttyAMA0 earlycon"
+  --change-to-64k true
 ```
-Both kernels build, but the release-candidate tag gets installed with the custom kernel command line needed by the Fastpath testing harness.
-
-#### 4. Install-only Fastpath workflow
-```bash
-./scripts/kernel_build_and_install.sh \
-  --install-from ~/kernels/6.18.1 \
-  --install-format flat \
-  --fastpath true \
-  --assume-yes
-```
-Use this command to reinstall Fastpath artifacts from a previous run when you want to refresh a SUT without waiting for another build.
+This variation still produces build-only artifacts, but it proves that you can layer other build-time options (like a 64 KB page size) on top of Fastpath runs before exporting the results to the Fastpath host.
 
 ---
 
@@ -241,7 +216,7 @@ ls ~/kernels
 ls ~/kernels/<version>
 ```
 
-If you installed the kernel, restart the system (the script offers to reboot automatically) and confirm:
+If you installed the kernel, the script reboots automatically when the install finishes. After it comes back up, confirm:
 
 ```bash
 uname -r
