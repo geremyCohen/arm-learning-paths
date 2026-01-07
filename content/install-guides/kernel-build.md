@@ -40,7 +40,7 @@ With your build instance running and accessible via SSH, install the required de
 
 ```bash
 sudo apt update
-sudo apt install -y git python3 python3-pip python3-venv build-essential bc rsync dwarves flex bison libssl-dev libelf-dev btop
+sudo apt install -y git python3 python3-pip python3-venv build-essential bc rsync dwarves flex bison libssl-dev libelf-dev btop yq
 
 cd
 git clone https://github.com/geremyCohen/arm_kernel_install_guide.git ~/arm_kernel_install_guide

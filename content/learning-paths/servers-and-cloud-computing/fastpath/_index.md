@@ -52,6 +52,7 @@ learning_path_main_page: "yes"
 ---
 
 Fastpath accelerates the cycle of building, deploying, and benchmarking Linux kernels on Arm-based infrastructure.  
+
 This learning path focuses on the core workflow a kernel developer follows to compare two kernel configurations using the utility scripts that accompany the official Fastpath tooling.
 
 In less than an hour you will:

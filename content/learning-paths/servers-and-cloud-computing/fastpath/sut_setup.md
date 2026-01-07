@@ -83,4 +83,4 @@ SW:
 
 A successful run prints hardware details for the SUT. If the command fails, verify security group rules and rerun the configuration script.  If you are able to ssh into the SUT as `fpuser`, but the fingerprint command still fails, ensure that `docker.io` is installed on the SUT.
 
-With the SUT now configured, you're ready to move on to the next step: setting up and running a Fastpath benchmark!  Remember to stop (but not terminate) the build instance so that kernel artifacts remain available, and stop any Fastpath/SUT helpers when you are finished testing to avoid unnecessary spend.
+With the SUT now configured, you're ready to move on to the next step: setting up and running a Fastpath benchmark!  Remember to stop (but not terminate) the build instance so that kernel artifacts remain available, and stop any Fastpath/SUT instances when you are finished testing to avoid unnecessary spend.
