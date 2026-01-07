@@ -1,0 +1,128 @@
+---
+title: "Setup Build Instance"
+
+weight: 3
+
+layout: "learningpathall"
+---
+
+## Provision the build host
+
+CPU-optimized instances are recommended to compile kernels quickly.  In our example, an AWS Graviton4 `c8g.24xlarge` instance is used. It will be referred to as the *build* machine throughout the rest of the guide.
+
+{{% notice Note %}}
+The following steps involve launching an EC2 instance.  You can perform all EC2 instance creation steps via the AWS Management Console instead or AWS CLI.  For step-by-step instructions to bring up an EC2 instance via the console, consult the [Compute Service Provider learning path](/learning-paths/servers-and-cloud-computing/csp/) for detailed instructions.  A tutorial from AWS is also available via [Get started with Amazon EC2](https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/EC2_GetStarted.html).
+{{% /notice %}}
+
+To launch the build machine, a `c8g.24xlarge` instance with the following parameters is suggested:
+
+* ARM Architecture
+* The latest Ubuntu Arm AMI
+* The `c8g.24xlarge` instance type
+* At least 200 GB of storage (to accommodate kernel sources and build artifacts).
+* A security group that allows SSH access inbound from your workstation's IP, and other nodes you will later create in the cluster. The default TCP port 22 from anywhere is sufficient for non-production testing.
+* A key pair for SSH access to the instance.
+
+  <p align="center">
+    <img src="/learning-paths/servers-and-cloud-computing/fastpath/images/ec2_setup.png" alt="EC2 setup" style="width:70%;">
+  </p>
+
+When the instance reports a `running` state, note the public and private IP addresses as BUILD_PUBLIC_IP and BUILD_PRIVATE_IP.  You'll need these values later.
+
+## Clone the Kernel Build repository on the build machine
+
+The Kernel Build repository contains build scripts and configuration files needed to easily compile kernels. To clone the repository:
+
+1. SSH into the `c8g.24xlarge` host using the configured key pair.
+
+    ```output
+    ssh -i ~/.ssh/gcohen1.pem ubuntu@34.216.87.65
+
+    Warning: Permanently added '34.216.87.65' (ED25519) to the list of known hosts.
+    Welcome to Ubuntu 24.04 LTS (GNU/Linux 6.8.0-1013-aws aarch64)
+    ubuntu@ip-172-31-33-43:~$
+    ```
+
+2. Open the [Install and Clone section](https://localhost:1313/install-guides/kernel-build/#install-and-clone) of the install guide from your workstation.
+
+3. Run each command from that section on the build machine.  It should be similar to the following (always refer to the above link for the latest command line):
+
+
+```output
+$ sudo apt update
+$ sudo apt install -y git python3 python3-pip python3-venv build-essential bc rsync dwarves flex bison libssl-dev libelf-dev btop
+$ cd
+$ git clone https://github.com/geremyCohen/arm_kernel_install_guide.git ~/arm_kernel_install_guide
+$ cd ~/arm_kernel_install_guide
+$ chmod +x scripts/*.sh
+      
+WARNING: apt does not have a stable CLI interface. Use with caution in scripts.
+Hit:1 http://us-west-2.ec2.ports.ubuntu.com/ubuntu-ports noble InRelease
+...
+0 upgraded, 100 newly installed, 0 to remove and 25 not upgraded.
+Setting up build-essential (12.10ubuntu1) ...
+Setting up python3-pip (24.0+dfsg-1ubuntu1.3) ...
+Cloning into 'arm_kernel_install_guide'...
+```
+
+## Building with the Kernel Build utility script
+
+With the repository cloned, you can now produce kernels with Fastpath support.
+
+Normally, to manually build, you'd have to:
+
+  - Update the host and install proper versions of every kernel build dependency
+  - Find and utilize the current stock kernel config 
+  - Clone the upstream kernel tree to fetch the desired versions and clean the tree between builds
+  - For each kernel version, copy the base config into the workspace, and append all Fastpath-specific options
+  - Run tuxmake for each kernel with the proper options
+  - Repeat the entire process for the second tag, ensuring the builds don’t collide
+  - Verify both kernel directories contain the required files
+  
+But do not fear... Using ```scripts/kernel_build_and_install.sh``` bundles all those steps together in a single easy-to-use command.
+
+### Which kernels should you build and test against with Fastpath?
+The answer to this question depends on what you are trying to accomplish.  
+
+If you are running through the Fastpath tutorial for the first time and getting used to how it works, its fine to use the arbitrary kernel versions given in Fastpath Example 2, which are v6.18.1 and v6.19-rc1.
+
+Once you are familiar with the process and you wish to explore and test further, choose any specific kernel versions, based on your use case.  
+
+## Compile and build Fastpath-enabled kernels 6.18.1 and 6.19-rc1
+
+To run the script with Fastpath options:
+
+1. On the build machine, ```cd``` into the `arm_kernel_install_guide` folder you just cloned. 
+
+```command
+cd ~/arm_kernel_install_guide
+```
+
+```output
+ubuntu@ip-10-0-12-34:~/arm_kernel_install_guide$
+```
+
+2. Open the [Custom tags with Fastpath enabled](http://localhost:1313/install-guides/kernel-build/#2-custom-tags-with-fastpath-enabled) section from the install guide, and follow the instructions to run the build script. It should be similar to the following (always refer to the above link for the latest command line):
+
+```output
+./scripts/kernel_build_and_install.sh --tags v6.18.1,v6.19-rc1 --fastpath true --output-base ~/work/kernel-builds/fastpath
+    
+   
+Kernel build settings:
+Repo:                git://git.kernel.org/pub/scm/linux/kernel/git/stable/linux.git
+Tags:                v6.18.1,v6.19-rc1
+Output base:         /home/ubuntu/work/kernel-builds/fastpath
+Fastpath configs:    true
+...
+I: build output in /home/ubuntu/work/kernel-builds/fastpath/6.18.1-ubuntu
+[2026-01-05 21:29:16] [v6.18.1-1] Build artifacts are located in /home/ubuntu/work/kernel-builds/fastpath/6.18.1-ubuntu+
+I: build output in /home/ubuntu/work/kernel-builds/fastpath/6.19.0-rc1-ubuntu
+[2026-01-05 21:29:19] [v6.19-rc1-2] Build artifacts are located in /home/ubuntu/work/kernel-builds/fastpath/6.19.0-rc1-ubuntu+
+...
+```
+
+The script will now build two kernel images.  This process may take some time -- on a `c8g.24xlarge` instance, expect approximately 30 minutes for both kernel builds to complete.
+
+4. Monitor the console output for the `BUILD COMPLETE` message. 
+
+Once finished, you will be ready to move on to the next step, where you prepare the Fastpath host.
