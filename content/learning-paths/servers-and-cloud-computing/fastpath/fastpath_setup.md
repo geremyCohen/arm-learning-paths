@@ -10,7 +10,7 @@ With newlycompiled kernels ready and waiting on the build instance, it's time to
 The Fastpath host will manage testing against the system under test (SUT) and coordinate benchmarking runs.
 
 ## Provision the Fastpath host
-To launch the Fastpath instance, provision a `c8g.2xlarge` with these characteristics (matching the build instance except for size):
+To launch the Fastpath instance, provision a `c8g.4xlarge` with these characteristics (matching the build instance except for size):
 
 * ARM architecture
 * Ubuntu 24.04 Arm AMI
@@ -24,7 +24,7 @@ When the instance reports a `running` state, note the public and private IP addr
 
 Repeat the dependency installation process so the Fastpath host has the same toolchain and helper scripts as the build machine.
 
-1. SSH into the `c8g.2xlarge` Fastpath host using the configured key pair.
+1. SSH into the `c8g.4xlarge` Fastpath host using the configured key pair.
 
 2. Open the [Install and Clone section](https://localhost:1313/install-guides/kernel-build/#install-and-clone) of the install guide from your workstation.
 
@@ -78,7 +78,7 @@ After copying the artifacts from the build machine, stop (or terminate it) to av
 
 
 {{% notice Note %}}
-If you do decide to keep the machine around as a kernel copy host, you can modify it to a smaller instance type such as `c8g.2xlarge` to save on costs when its running.  The larger 24xlarge instance is only needed during kernel compilation.
+If you do decide to keep the machine around as a kernel copy host, you can modify it to a smaller instance type such as `c8g.4xlarge` to save on costs when its running.  The larger 24xlarge instance is only needed during kernel compilation.
 {{% /notice %}}
 
 ## Configure the Fastpath host
