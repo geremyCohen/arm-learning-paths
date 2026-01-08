@@ -29,6 +29,7 @@ Use this reference before every Fastpath learning-path (LP) validation run so te
 - Security groups:
   - Create per-test security groups when needed (e.g., `gcohen-fastpath-build-sg`) and restrict SSH ingress to the current Codex public IP.
   - Reuse groups if they already exist with the same rules.
+  - There is no need to document security group creation / ec2-related aws cli steps.  You may need to discover how to create a SG, id the VPC/subnet to use, the ec2 commands, etc., but these do not need to be included in the LP, as we assume the user knows what to do when we say "bring up an instance"
 
 ## Lifecycle Management
 - **Build machines**: shut them down with `sudo init 0` or `aws ec2 stop-instances` when finished, but do **not** terminate them. This preserves the kernel artifacts for follow-up work.
