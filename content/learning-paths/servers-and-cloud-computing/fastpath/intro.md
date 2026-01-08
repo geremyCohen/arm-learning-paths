@@ -6,16 +6,16 @@ weight: 2
 layout: "learningpathall"
 ---
 
-Kernels provide the bridge between applications and the underlying hardware. Building a custom kernel lets you:
+Kernels sit between your applications and the underlying hardware. Rebuilding a custom kernel lets you consume new features early, apply experimental scheduler or memory patches, or toggle specialized instrumentation without waiting for distro updates. If you care about squeezing the most performance from an Arm server, custom kernels are how you measure the effect of those changes.
 
-1. Enable new platform capabilities ahead of their default release (for example, an Armv9 instruction set or device driver).
-2. Apply experimental scheduler or memory-management patches to evaluate performance in context.
-3. Toggle debugging or tracing features to investigate hard-to-reproduce issues without waiting for upstream packages.
+For this tutorial we focus on a concrete experiment: run the Speedometer browser benchmark on **two** kernel versions and see which one delivers the higher score. That mirrors the day-to-day workflow for kernel engineers—build, deploy, compare—and Fastpath provides the automation that keeps it reproducible.
 
-In this Fastpath-focused tutorial you will assemble two kernel variants with `tuxmake`, deploy them with Fastpath’s automation, and compare their performance on a dedicated test system running a reproducible benchmark workload.
+To keep things organized we use three Arm-based nodes:
 
-To keep the ramp-up simple we rely on helper scripts from the [`arm_kernel_install_guide`](https://github.com/geremyCohen/arm_kernel_install_guide) repository.  
-These scripts wrap the detailed procedure covered in the official [Fastpath documentation](https://fastpath.docs.arm.com/en/latest/index.html).  
-Whenever you want more context, or need to extend the workflow, refer back to the official guide.
+1. **Build host** – compiles the Fastpath-ready kernels you want to test.
+2. **Fastpath host** – manages plan generation, deployment, benchmarking, and result collection.
+3. **System Under Test (SUT)** – runs each kernel and executes the Speedometer workload.
 
-The remainder of this learning path walks through the build portion of the workflow. Deployment and benchmarking with Fastpath are handled in the subsequent steps.
+Arm’s [`arm_kernel_install_guide`](https://github.com/geremyCohen/arm_kernel_install_guide) repository supplies wrapper scripts for every stage, so you don’t have to wire the workflow together yourself. You’ll use those scripts to compile kernels on the build host, prepare the Fastpath host and SUT, generate a plan, run it, and read the results. Refer to the official [Fastpath documentation](https://fastpath.docs.arm.com/en/latest/index.html) any time you need deeper context or want to expand the process beyond this guided example.
+
+The remaining chapters walk you through provisioning the three nodes, compiling the kernels, configuring Fastpath, and executing the benchmark comparison end to end.
