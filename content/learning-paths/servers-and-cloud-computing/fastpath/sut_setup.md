@@ -16,14 +16,14 @@ Just like choosing the kernels to test, the instance type of the SUT depends on 
 
 Launch the *SUT* host machine with the following settings:
 
-1. **Name:** fastpath-sut
-2. **Operating system:** Ubuntu
-3. **AMI:** Ubuntu 24.04 LTS (Arm)
-4. **Architecture:** 64-bit Arm
-5. **Instance type:** `c8g.12xlarge`
-6. **Key pair:** existing SSH key (create/select as needed)
-7. **Security group:** allow SSH inbound from your IP and Fastpath host
-8. **Storage:** 200 GB gp3
+1. **Name** — *fastpath-sut*
+2. **Operating system** — *Ubuntu*
+3. **AMI** — *Ubuntu 24.04 LTS (Arm)*
+4. **Architecture** — *64-bit Arm*
+5. **Instance type** — `c8g.12xlarge`
+6. **Key pair** — `gcohen1` (or your own key)
+7. **Security group** — *allow SSH inbound from your IP and Fastpath host*
+8. **Storage** — *200 GB gp3*
 
 For a visual representation of these steps, refer back to the diagram in [Build Setup](../build_setup/).
 

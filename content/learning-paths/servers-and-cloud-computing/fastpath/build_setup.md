@@ -16,14 +16,14 @@ The following steps involve launching an EC2 instance.  You can perform all EC2 
 
 Launch the *build* machine with the following settings:
 
-1. **Name:** fastpath-build
-2. **Operating system:** Ubuntu
-3. **AMI:** Ubuntu 24.04 LTS (Arm)
-4. **Architecture:** 64-bit Arm
-5. **Instance type:** `c8g.24xlarge`
-6. **Key pair:** existing SSH key (create/select as needed)
-7. **Security group:** allow SSH inbound from your IP (and future cluster nodes)
-8. **Storage:** 200 GB gp3
+1. **Name** — *fastpath-build*
+2. **Operating system** — *Ubuntu*
+3. **AMI** — *Ubuntu 24.04 LTS (Arm)*
+4. **Architecture** — *64-bit Arm*
+5. **Instance type** — `c8g.24xlarge`
+6. **Key pair** — `gcohen1` (or your preferred key)
+7. **Security group** — *allow SSH inbound from your IP and cluster peers*
+8. **Storage** — *200 GB gp3*
 
 
   <p align="center">
