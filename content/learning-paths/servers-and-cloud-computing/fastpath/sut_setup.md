@@ -14,14 +14,18 @@ The System Under Test (SUT) is the target machine where Fastpath installs your k
 
 Just like choosing the kernels to test, the instance type of the SUT depends on your use case. For this Fastpath LP, we recommend a Graviton4 `c8g.12xl` instance with Ubuntu 24.04 LTS. This instance type provides a good balance of CPU and memory for a test benchmark.
 
-To launch our SUT instance, a `c8g.12xlarge` instance with the following parameters is suggested:
+Launch the *SUT* host machine with the following settings:
 
-* ARM Architecture
-* The latest Ubuntu Arm AMI
-* The `c8g.12xlarge` instance type
-* At least 200 GB of storage (to accommodate kernel sources and build artifacts).
-* A security group that allows SSH access inbound from your workstation's IP, and other nodes you will later create in the cluster. The default TCP port 22 from anywhere is sufficient for non-production testing.
-* A key pair for SSH access to the instance.
+1. **Name:** fastpath-sut
+2. **Operating system:** Ubuntu
+3. **AMI:** Ubuntu 24.04 LTS (Arm)
+4. **Architecture:** 64-bit Arm
+5. **Instance type:** `c8g.12xlarge`
+6. **Key pair:** existing SSH key (create/select as needed)
+7. **Security group:** allow SSH inbound from your IP and Fastpath host
+8. **Storage:** 200 GB gp3
+
+For a visual representation of these steps, refer back to the diagram in [Build Setup](../build_setup/).
 
 When the instance reports a `running` state, note the public and private IP addresses as SUT_PUBLIC_IP and SUT_PRIVATE_IP.  You'll need these values later.
 

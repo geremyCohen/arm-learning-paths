@@ -10,13 +10,20 @@ With newlycompiled kernels ready and waiting on the build instance, it's time to
 The Fastpath host will manage testing against the system under test (SUT) and coordinate benchmarking runs.
 
 ## Provision the Fastpath host
-To launch the Fastpath instance, provision a `c8g.4xlarge` with these characteristics (matching the build instance except for size):
 
-* ARM architecture
-* Ubuntu 24.04 Arm AMI
-* 200 GB gp3 root volume
-* Security group that allows SSH (TCP/22) from your current public IP and from any build/SUT nodes that must reach it
-* Existing EC2 key pair for SSH access
+
+Launch the *fastpath host* machine with the following settings:
+
+1. **Name:** fastpath-host
+2. **Operating system:** Ubuntu
+3. **AMI:** Ubuntu 24.04 LTS (Arm)
+4. **Architecture:** 64-bit Arm
+5. **Instance type:** `c8g.4xlarge`
+6. **Key pair:** existing SSH key (create/select as needed)
+7. **Security group:** allow SSH inbound from your IP and peer nodes
+8. **Storage:** 200 GB gp3
+
+For a visual representation of these steps, refer back to the diagram in [Build Setup](../build_setup/).
 
 When the instance reports a `running` state, note the public and private IP addresses as FASTPATH_PUBLIC_IP and FASTPATH_PRIVATE_IP.  You'll need these values later.
 
