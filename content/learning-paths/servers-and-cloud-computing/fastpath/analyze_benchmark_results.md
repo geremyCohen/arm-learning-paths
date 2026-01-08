@@ -16,7 +16,7 @@ To inspect the outputs stored in the `results/` directory you can use the sample
 To see the swprofiles (kernels) tested and stored in the results directory, run:
 
 ```commandline
-fastpath result list results/ --object swprofile
+fastpath result list results-fastpath_test_010826-1837 --object swprofile
 ```
 
 If you followed the tutorial exactly, you should see output similar to:
@@ -60,7 +60,7 @@ If you followed the tutorial exactly, you should see output similar to:
 To see the relative results for each kernel, run the following commands:
 
 ```commandline
-  fastpath result show results/ --swprofile 6.19.0-rc1-ubuntu+ --relative
+  fastpath result show results-fastpath_test_010826-1837 --swprofile fp_6.19.0-rc1-ubuntu --relative
 ```
 Relative in this case means that the statistics displayed are relative to the mean. In addition to the min/mean/max, you are also given the confidence interval bounds, the coefficient of variation and the number of samples, similar to:
 
@@ -68,14 +68,14 @@ Relative in this case means that the statistics displayed are relative to the me
 +------------------+--------------------+--------+----------+--------+----------+--------+--------+-------+
 | Benchmark        | Result Class       |    min | ci95min  |   mean | ci95max  |    max |     cv | count |
 +------------------+--------------------+--------+----------+--------+----------+--------+--------+-------+
-| speedometer/v2.1 | score (runs/min)   | -0.57% |  -1.09%  | 219.25 |   1.09%  |  0.80% |  0.68% |     4 |
+| speedometer/v2.1 | score (runs/min)   | -1.81% |  -2.42%  | 221.00 |   2.42%  |  1.81% |  1.52% |     4 |
 +------------------+--------------------+--------+----------+--------+----------+--------+--------+-------+
 ```
 
 You can run it again for the other kernel:
 
 ```commandline
-fastpath result show results/ --swprofile fp_6.18.1-ubuntu --relative```
+fastpath result show results-fastpath_test_010826-1837 --swprofile fp_6.18.1-ubuntu --relative
 ```
 with output similar to:
 
@@ -83,7 +83,7 @@ with output similar to:
 +------------------+--------------------+--------+----------+--------+----------+--------+--------+-------+
 | Benchmark        | Result Class       |    min | ci95min  |   mean | ci95max  |    max |     cv | count |
 +------------------+--------------------+--------+----------+--------+----------+--------+--------+-------+
-| speedometer/v2.1 | score (runs/min)   | -1.03% |  -1.50%  | 219.25 |   1.50%  |  0.80% |  0.94% |     4 |
+| speedometer/v2.1 | score (runs/min)   | -0.86% |  -1.25%  | 233.00 |   1.25%  |  0.86% |  0.78% |     4 |
 +------------------+--------------------+--------+----------+--------+----------+--------+--------+-------+
 ```
 
@@ -94,7 +94,7 @@ To compare the relative results between both kernels, run:
 
 
 ```commandline
-fastpath result show results/ --swprofile fp_6.19.0-rc1-ubuntu --swprofile fp_6.18.1-ubuntu --relative
+fastpath result show results-fastpath_test_010826-1837 --swprofile fp_6.19.0-rc1-ubuntu --swprofile fp_6.18.1-ubuntu --relative
 ```
 with output similar to:
 
@@ -102,12 +102,9 @@ with output similar to:
 +------------------+--------------------+-----------------------+---------------------+
 | Benchmark        | Result Class       | fp_6.19.0-rc1-ubuntu  | fp_6.18.1-ubuntu    |
 +------------------+--------------------+-----------------------+---------------------+
-| speedometer/v2.1 | score (runs/min)   |                219.25 |               0.03% |
+| speedometer/v2.1 | score (runs/min)   |                221.00 |               3.39% |
 +------------------+--------------------+-----------------------+---------------------+
 ```
 We see 6.18.1 is performing slightly better than 6.19-rc1 in this benchmark.
 
 More examples of analyzing results can be found in the [Fastpath Results User Guide](https://fastpath.docs.arm.com/en/latest/user-guide/resultshow.html).
-
-
-

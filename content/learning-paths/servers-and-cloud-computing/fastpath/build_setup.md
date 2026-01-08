@@ -38,9 +38,18 @@ The Kernel Build repository contains build scripts and configuration files neede
     ```output
     ssh -i ~/.ssh/gcohen1.pem ubuntu@34.216.87.65
 
-    Warning: Permanently added '34.216.87.65' (ED25519) to the list of known hosts.
-    Welcome to Ubuntu 24.04 LTS (GNU/Linux 6.8.0-1013-aws aarch64)
-    ubuntu@ip-172-31-33-43:~$
+    $ ssh -i ~/.ssh/gcohen1.pem ubuntu@54.174.185.226
+
+    Warning: Permanently added '54.174.185.226' (ED25519) to the list of known hosts.
+    Welcome to Ubuntu 24.04.3 LTS (GNU/Linux 6.14.0-1018-aws aarch64)
+
+    System information as of Thu Jan  8 18:12:07 UTC 2026
+
+      System load:  0.35               Users logged in:        0
+      Memory usage: 0%                 IPv4 address for ens66: 172.31.110.110
+
+    Last login: Thu Jan  8 18:12:14 2026 from 217.140.103.82
+    ubuntu@ip-172-31-110-110:~$
     ```
 
 2. Open the [Install and Clone section](https://localhost:1313/install-guides/kernel-build/#install-and-clone) of the install guide from your workstation.
@@ -55,12 +64,16 @@ $ cd
 $ git clone https://github.com/geremyCohen/arm_kernel_install_guide.git ~/arm_kernel_install_guide
 $ cd ~/arm_kernel_install_guide
 $ chmod +x scripts/*.sh
-      
+
 WARNING: apt does not have a stable CLI interface. Use with caution in scripts.
-Hit:1 http://us-west-2.ec2.ports.ubuntu.com/ubuntu-ports noble InRelease
+Hit:1 http://us-east-1.ec2.ports.ubuntu.com/ubuntu-ports noble InRelease
+Get:2 http://us-east-1.ec2.ports.ubuntu.com/ubuntu-ports noble-updates InRelease [126 kB]
+Get:3 http://us-east-1.ec2.ports.ubuntu.com/ubuntu-ports noble-backports InRelease [126 kB]
+Get:4 http://ports.ubuntu.com/ubuntu-ports noble-security InRelease [126 kB]
 ...
-0 upgraded, 100 newly installed, 0 to remove and 25 not upgraded.
+0 upgraded, 104 newly installed, 0 to remove and 43 not upgraded.
 Setting up build-essential (12.10ubuntu1) ...
+Setting up libssl-dev:arm64 (3.0.13-0ubuntu3.6) ...
 Setting up python3-pip (24.0+dfsg-1ubuntu1.3) ...
 Cloning into 'arm_kernel_install_guide'...
 ```
@@ -99,26 +112,30 @@ cd ~/arm_kernel_install_guide
 ```
 
 ```output
-ubuntu@ip-10-0-12-34:~/arm_kernel_install_guide$
+ubuntu@ip-172-31-110-110:~/arm_kernel_install_guide$
 ```
 
 2. Open the [Custom tags with Fastpath enabled](http://localhost:1313/install-guides/kernel-build/#2-custom-tags-with-fastpath-enabled) section from the install guide, and follow the instructions to run the build script. It should be similar to the following (always refer to the above link for the latest command line):
 
 ```output
-./scripts/kernel_build_and_install.sh --tags v6.18.1,v6.19-rc1 --fastpath true --output-base ~/work/kernel-builds/fastpath
-    
-   
+$ ./scripts/kernel_build_and_install.sh --tags v6.18.1,v6.19-rc1 --fastpath true --output-base ~/work/kernel-builds/fastpath
+
+[2026-01-08 18:13:14] Updating apt metadata
 Kernel build settings:
-Repo:                git://git.kernel.org/pub/scm/linux/kernel/git/stable/linux.git
-Tags:                v6.18.1,v6.19-rc1
-Output base:         /home/ubuntu/work/kernel-builds/fastpath
-Fastpath configs:    true
+  Repo:                git://git.kernel.org/pub/scm/linux/kernel/git/stable/linux.git
+  Branch:              linux-rolling-stable
+  Tags:                v6.18.1,v6.19-rc1
+  Config file:         /boot/config-6.14.0-1018-aws
+  Kernel dir base:     /home/ubuntu/kernels/linux
+  Output base:         /home/ubuntu/work/kernel-builds/fastpath
+  Fastpath configs:    true
+  64K page size:       false
+  Kernel install:      false
 ...
 I: build output in /home/ubuntu/work/kernel-builds/fastpath/6.18.1-ubuntu
-[2026-01-05 21:29:16] [v6.18.1-1] Build artifacts are located in /home/ubuntu/work/kernel-builds/fastpath/6.18.1-ubuntu+
+[2026-01-08 18:32:03] [v6.18.1-1] Build artifacts are located in /home/ubuntu/work/kernel-builds/fastpath/6.18.1-ubuntu+
 I: build output in /home/ubuntu/work/kernel-builds/fastpath/6.19.0-rc1-ubuntu
-[2026-01-05 21:29:19] [v6.19-rc1-2] Build artifacts are located in /home/ubuntu/work/kernel-builds/fastpath/6.19.0-rc1-ubuntu+
-...
+[2026-01-08 18:32:06] [v6.19-rc1-2] Build artifacts are located in /home/ubuntu/work/kernel-builds/fastpath/6.19.0-rc1-ubuntu+
 ```
 
 The script will now build two kernel images.  This process may take some time -- on a `c8g.24xlarge` instance, expect approximately 30 minutes for both kernel builds to complete.

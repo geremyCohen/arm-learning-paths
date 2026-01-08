@@ -25,25 +25,25 @@ cd ~/arm_kernel_install_guide
 When complete, the script creates the plan, and provides a list of frequently performed tasks relative to the plan:
 
 ```output
-Enter SUT private IP: 10.123.22.11
+Enter SUT private IP: 172.31.100.19
 Plan name:
-  fastpath_test_010726-1955
+  fastpath_test_010826-1837
 
 Plan written to:
-  /home/ubuntu/arm_kernel_install_guide/plans/fastpath_test_010726-1955.yaml
+  /home/ubuntu/arm_kernel_install_guide/plans/fastpath_test_010826-1837.yaml
 
 Run Fastpath with:
-  fastpath plan exec --output results/ /home/ubuntu/arm_kernel_install_guide/plans/fastpath_test_010726-1955.yaml
+  fastpath plan exec --output results/ /home/ubuntu/arm_kernel_install_guide/plans/fastpath_test_010826-1837.yaml
 
 After Fastpath run completes, gather results with:
   fastpath result list results/ --object swprofile
 
 Relative results per kernel:
-  fastpath result show results/ --swprofile 6.19.0-rc1-ubuntu+ --relative
-  fastpath result show results/ --swprofile 6.18.1-ubuntu+ --relative
+  fastpath result show results/ --swprofile fp_6.19.0-rc1-ubuntu --relative
+  fastpath result show results/ --swprofile fp_6.18.1-ubuntu --relative
 
 Comparison between kernels:
-  fastpath result show results/ --swprofile 6.19.0-rc1-ubuntu+ --swprofile 6.18.1-ubuntu+ --relative
+  fastpath result show results/ --swprofile fp_6.19.0-rc1-ubuntu --swprofile fp_6.18.1-ubuntu --relative
 ```
 
 
@@ -55,17 +55,17 @@ With the plan generated, you can now run Fastpath to execute the benchmark workl
 Before you do, take a quick look at the generated plan file to see what kernels and workloads are defined:
 
 ```console
-cat plans/fastpath_test_010726-2015.yaml # your plan filename will be different, replace accordingly
+cat plans/fastpath_test_010826-1837.yaml # your plan filename will be different, replace accordingly
 ```
 
 ```output
 sut:
-  name: fastpath_test_010726-2015
+  name: fastpath_test_010826-1837
   connection:
     method: SSH
     params:
       user: fpuser
-      host: 172.31.110.221
+      host: 172.31.100.19
 swprofiles:
 - name: fp_6.19.0-rc1-ubuntu
   kernel: /home/ubuntu/kernels/6.19.0-rc1-ubuntu+/Image.gz
@@ -102,14 +102,15 @@ For a list of current benchmarks supported by Fastpath, see the [Fastpath Benchm
 Time to run the benchmark!  An example plan execution commandline is given under the "Run Fastpath with:" section of the plan generator's output, similar to:
 
 ```output
-  fastpath plan exec --output results/ /home/ubuntu/arm_kernel_install_guide/plans/fastpath_test_010726-2015.yaml
+  fastpath plan exec --output results-fastpath_test_010826-1837 /home/ubuntu/arm_kernel_install_guide/plans/fastpath_test_010826-1837.yaml
 ```
 
 Copy and paste that line, to begin the testing:
 
 ```output
-Executing fastpath_test_010726-2015.yaml...
-0%|                | 0/12 [00:00<?, ?it/s]
+Executing fastpath_test_010826-1837.yaml...
+  0%|          | 0/12 [00:00<?, ?it/s]
+100%|██████████| 12/12 [10:36<00:00, 53.05s/it]
 ```
 
 And away the testing begins!
@@ -124,4 +125,3 @@ The solution is to use the `--append` parameter at the end of the `fastplath pla
 When the execution completes 100%, Fastpath will have run the Speedometer benchmark against both kernels on the SUT, and stored the results in the specified output directory.
 
 In the next chapter, you'll learn how to analyze and compare the results.
-

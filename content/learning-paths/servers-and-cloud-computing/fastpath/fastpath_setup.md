@@ -31,18 +31,20 @@ Repeat the dependency installation process so the Fastpath host has the same too
 3. Run each command from that section on the Fastpath machine.  It should be similar to the following (always refer to the above link for the latest command line):
 
     ```output
-    sudo apt update && sudo apt install -y git python3 python3-pip python3-venv build-essential bc rsync dwarves flex bison libssl-dev libelf-dev btop
-    
+    $ sudo apt update && sudo apt install -y git python3 python3-pip python3-venv build-essential bc rsync dwarves flex bison libssl-dev libelf-dev btop yq
 
     WARNING: apt does not have a stable CLI interface. Use with caution in scripts.
     Hit:1 http://us-east-1.ec2.ports.ubuntu.com/ubuntu-ports noble InRelease
+    Get:2 http://us-east-1.ec2.ports.ubuntu.com/ubuntu-ports noble-updates InRelease [126 kB]
     ...
-    0 upgraded, 100 newly installed, 0 to remove and 29 not upgraded.
+    0 upgraded, 104 newly installed, 0 to remove and 43 not upgraded.
     Setting up build-essential (12.10ubuntu1) ...
+    Setting up libssl-dev:arm64 (3.0.13-0ubuntu3.6) ...
     Setting up python3-pip (24.0+dfsg-1ubuntu1.3) ...
 
-
-    cd ~ && git clone https://github.com/geremyCohen/arm_kernel_install_guide.git && cd arm_kernel_install_guide && chmod +x scripts/*.sh
+    $ cd
+    $ git clone https://github.com/geremyCohen/arm_kernel_install_guide.git ~/arm_kernel_install_guide
+    $ cd ~/arm_kernel_install_guide && chmod +x scripts/*.sh
 
     Cloning into 'arm_kernel_install_guide'...
     ```
@@ -59,14 +61,23 @@ When we begin testing, the Fastpath instance will push the compiled kernels to t
 
     ```command
     cd ~/arm_kernel_install_guide
-    ./scripts/pull_kernel_artifacts.sh --host 100.119.0.141 
+    ./scripts/pull_kernel_artifacts.sh --host 172.31.110.110 
     ```
 
     ```output
-    [2026-01-06 20:22:44] Pulling kernel artifacts:
-    [2026-01-06 20:22:44]   Host        : 100.119.0.141
-    ...
-    [2026-01-06 20:22:52] Artifact pull complete.
+    [2026-01-08 18:35:14] Pulling kernel artifacts:
+    [2026-01-08 18:35:14]   Host        : 172.31.110.110
+    [2026-01-08 18:35:14]   SSH user    : ubuntu
+    [2026-01-08 18:35:14]   Remote dir  : /home/ubuntu/work/kernel-builds/fastpath
+    [2026-01-08 18:35:14]   Local dir   : /home/ubuntu/kernels
+    [2026-01-08 18:35:14]   Versions    : auto-detected
+    [2026-01-08 18:35:15] Copying 6.18.1-ubuntu+/Image.gz
+    [2026-01-08 18:35:16] Copying 6.18.1-ubuntu+/modules.tar.xz
+    [2026-01-08 18:35:18] Copying optional 6.18.1-ubuntu+/config.stock
+    [2026-01-08 18:35:18] Copying 6.19.0-rc1-ubuntu+/Image.gz
+    [2026-01-08 18:35:19] Copying 6.19.0-rc1-ubuntu+/modules.tar.xz
+    [2026-01-08 18:35:21] Copying optional 6.19.0-rc1-ubuntu+/config.stock
+    [2026-01-08 18:35:21] Artifact pull complete.
     ```
 
 
@@ -98,10 +109,10 @@ With kernels copied over, the final step is to install and configure the Fastpat
     ```
 
     ```output
-    [2026-01-06 20:23:05] Configuring fastpath host localhost (non-interactive mode)
-    [2026-01-06 20:23:05] Installing prerequisites
+    [2026-01-08 18:35:27] Configuring fastpath host localhost (non-interactive mode)
+    [2026-01-08 18:35:27] Installing prerequisites
     ...
-    [2026-01-06 20:23:47] Fastpath host setup complete.
+    [2026-01-08 18:36:10] Fastpath host setup complete.
     ```
 
 Take note that the script creates a Python virtual environment (default `~/venv`) and installs the Fastpath CLI alongside its dependencies:
