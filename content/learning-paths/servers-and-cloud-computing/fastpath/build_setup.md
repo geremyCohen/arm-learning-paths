@@ -14,14 +14,17 @@ CPU-optimized instances are recommended to compile kernels quickly.  In our exam
 The following steps involve launching an EC2 instance.  You can perform all EC2 instance creation steps via the AWS Management Console instead or AWS CLI.  For step-by-step instructions to bring up an EC2 instance via the console, consult the [Compute Service Provider learning path](/learning-paths/servers-and-cloud-computing/csp/) for detailed instructions.  A tutorial from AWS is also available via [Get started with Amazon EC2](https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/EC2_GetStarted.html).
 {{% /notice %}}
 
-To launch the build machine, a `c8g.24xlarge` instance with the following parameters is suggested:
+Launch the *build* machine with the following settings:
 
-* ARM Architecture
-* The latest Ubuntu Arm AMI
-* The `c8g.24xlarge` instance type
-* At least 200 GB of storage (to accommodate kernel sources and build artifacts).
-* A security group that allows SSH access inbound from your workstation's IP, and other nodes you will later create in the cluster. The default TCP port 22 from anywhere is sufficient for non-production testing.
-* A key pair for SSH access to the instance.
+1. **Name:** fastpath-build
+2. **Operating system:** Ubuntu
+3. **AMI:** Ubuntu 24.04 LTS (Arm)
+4. **Architecture:** 64-bit Arm
+5. **Instance type:** `c8g.24xlarge`
+6. **Key pair:** existing SSH key (create/select as needed)
+7. **Security group:** allow SSH inbound from your IP (and future cluster nodes)
+8. **Storage:** 200 GB gp3
+
 
   <p align="center">
     <img src="/learning-paths/servers-and-cloud-computing/fastpath/images/ec2_setup.png" alt="EC2 setup" style="width:70%;">
