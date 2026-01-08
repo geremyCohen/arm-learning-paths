@@ -51,15 +51,18 @@ layout: "learningpathall"
 learning_path_main_page: "yes"
 ---
 
-Fastpath accelerates the cycle of building, deploying, and benchmarking Linux kernels on Arm-based infrastructure.  
+Fastpath accelerates the cycle of building, deploying, and benchmarking Linux kernels on Arm-based infrastructure.
 
-This learning path focuses on the workflow a kernel developer follows to compare the performance of a benchmark across two kernel configurations by way of Fastpath.
+Off-the-shelf distributions ship with general-purpose kernels, but when you want to maximize performance you often need to rebuild the kernel with custom configuration options, experimental patches, or prerelease code. Custom kernels let you validate questions like “does an RC fix my workload regression?” or “do these extra debug settings impose measurable overhead?” without waiting for distro updates.
 
-In about an hour you will:
+This learning path focuses on a concrete use case: run the Speedometer browser benchmark on two different kernel versions and determine which kernel delivers the best score. The workflow mirrors what kernel engineers do every day—build, deploy, and compare—while Fastpath keeps the process reproducible.
 
-1. Build a build, SUT, and Fastpath host on Arm-based AWS EC2 instances.
-2. Compile kernel versions of your choice to test against via the build host.
-3. Install Fastpath and its dependencies on the SUT and Fastpath hosts.
-4. Perform kernel benchmarking using Fastpath, and analyze the results.
+To make that manageable we split the work across three Arm-based nodes:
+
+1. **Build host** – compiles the kernels with Fastpath-specific options.
+2. **Fastpath host** – orchestrates deployments, plan execution, and result collection.
+3. **System Under Test (SUT)** – runs each kernel and executes the benchmark workloads.
+
+Arm’s `arm_kernel_install_guide` repository supplies wrapper scripts that streamline each step. You will use them to compile kernels on the build host, prepare the Fastpath host and SUT, generate a plan, execute it, and then read the results without having to stitch together the workflow manually.
 
 > **Tip:** The complete Fastpath reference documentation is available at [fastpath.docs.arm.com](https://fastpath.docs.arm.com/en/latest/index.html).  
