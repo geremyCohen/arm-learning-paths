@@ -21,7 +21,7 @@ Launch the *SUT* host machine with the following settings:
 3. **AMI** — *Ubuntu 24.04 LTS (Arm)*
 4. **Architecture** — *64-bit Arm*
 5. **Instance type** — `c8g.12xlarge`
-6. **Key pair** — `gcohen1` (or your own key)
+6. **Key pair** — *Select or create a key for SSH*
 7. **Security group** — *allow SSH inbound from your IP and Fastpath host*
 8. **Storage** — *200 GB gp3*
 
