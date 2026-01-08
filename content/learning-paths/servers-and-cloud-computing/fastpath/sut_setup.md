@@ -38,24 +38,23 @@ When communicating from the Fastpath host to the SUT, use the SUT's private IP a
 In this example, `44.201.174.17` is used as the Fastpath host public IP, and `100.119.0.139` is used as the SUT's private IP. Replace with your own values:
 
 ```command
-ssh -A -i ~/.ssh/gcohen1.pem ubuntu@44.201.174.17 # SSH to FASTPATH_PUBLIC_IP with agent forwarding
+ssh -A -i ~/.ssh/gcohen1.pem ubuntu@3.86.227.83 # SSH to FASTPATH_PUBLIC_IP with agent forwarding
 source ~/venv/bin/activate # Activate the Fastpath virtual environment
 cd ~/arm_kernel_install_guide # Enter the helper scripts repository
-./scripts/configure_fastpath_sut.sh --host 100.119.0.139 # Configure the new SUT instance via its private IP
+./scripts/configure_fastpath_sut.sh --host 172.31.100.19 # Configure the new SUT instance via its private IP
 ```
 
 ```output
-[2026-01-07 00:25:45] Configuring 100.119.0.139 as fastpath SUT (non-interactive mode)
-[2026-01-07 00:25:45] Ensuring docker.io, btop, and yq are installed
-Warning: Permanently added '100.119.0.139' (ED25519) to the list of known hosts.
+[2026-01-08 18:36:23] Configuring 172.31.100.19 as fastpath SUT (non-interactive mode)
+[2026-01-08 18:36:23] Ensuring docker.io, btop, and yq are installed
+Warning: Permanently added '172.31.100.19' (ED25519) to the list of known hosts.
 Hit:1 http://us-east-1.ec2.ports.ubuntu.com/ubuntu-ports noble InRelease
 ...
-0 upgraded, 13 newly installed, 0 to remove and 29 not upgraded.
-...
-[2026-01-07 00:26:19] Testing SSH connectivity for fpuser
+[2026-01-08 18:36:47] Creating/updating fpuser
+[2026-01-08 18:36:53] Testing SSH connectivity for fpuser
 fpuser
-[2026-01-07 00:26:20] Fastpath SUT configuration complete.
-[2026-01-07 00:26:20] Note: ubuntu may need to re-login for docker group membership to take effect.
+[2026-01-08 18:36:54] Fastpath SUT configuration complete.
+[2026-01-08 18:36:54] Note: ubuntu may need to re-login for docker group membership to take effect.
 ```
 
 
@@ -66,12 +65,12 @@ Once complete, ensure the Fastpath host can properly ping the SUT with the follo
 ```command
 cd ~/fastpath
 source ~/venv/bin/activate
-./fastpath/fastpath sut fingerprint --user fpuser 100.119.0.139
+./fastpath/fastpath sut fingerprint --user fpuser 172.31.100.19
 ```
 
 ```output
 HW:
-  host_name: ip-100-119-0-139
+  host_name: ip-172-31-100-19
   architecture: aarch64
   cpu_count: 48
   ...
