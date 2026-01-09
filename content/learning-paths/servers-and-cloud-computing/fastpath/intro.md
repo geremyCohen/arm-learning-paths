@@ -6,16 +6,45 @@ weight: 2
 layout: "learningpathall"
 ---
 
-Kernels sit between your applications and the underlying hardware. Rebuilding a custom kernel lets you consume new features early, apply experimental scheduler or memory patches, or toggle specialized instrumentation without waiting for distro updates. If you care about squeezing the most performance from an Arm server, custom kernels are how you measure the effect of those changes.
+## Overview
 
-For this tutorial we focus on a concrete experiment: run the Speedometer browser benchmark on **two** kernel versions and see which one delivers the higher score. That mirrors the day-to-day workflow for kernel engineers—build, deploy, compare—and Fastpath provides the automation that keeps it reproducible.
+Building a custom kernel lets you experiment with new features, patches, or toggle specialized instrumentation without waiting for them to be available from the official Linux distro updates.  But building them is only half the battle. You also need to deploy them to a test system, run the benchmarks, and compare results between kernels to understand how their differences impact your workloads. 
 
-To keep things organized we use three Arm-based nodes:
+This learning path shows you how to implement this end‑to‑end workflow for doing just that; building, configuring, and running [fastpath](https://fastpath.docs.arm.com/en/latest/index.html) benchmarks on Arm-compatible Linux kernels.
 
-1. **Build host** – compiles the Fastpath-ready kernels you want to test.
-2. **Fastpath host** – manages plan generation, deployment, benchmarking, and result collection.
-3. **System Under Test (SUT)** – runs each kernel and executes the Speedometer workload.
+[`Utility scripts`](https://github.com/geremyCohen/arm_kernel_install_guide) are provided which abstract low‑level setup work, allowing you to focus on how the systems work together, rather than how every dependency is installed.
 
-Arm’s [`arm_kernel_install_guide`](https://github.com/geremyCohen/arm_kernel_install_guide) repository supplies wrapper scripts for every stage, so you don’t have to wire the workflow together yourself. You’ll use those scripts to compile kernels on the build host, prepare the Fastpath host and SUT, generate a plan, run it, and read the results. Refer to the official [Fastpath documentation](https://fastpath.docs.arm.com/en/latest/index.html) any time you need deeper context or want to expand the process beyond this guided example.
+## Overall Process
 
-The remaining chapters walk you through provisioning the three nodes, compiling the kernels, configuring Fastpath, and executing the benchmark comparison end to end.
+The overall process consists of three main machines working together:
+
+  <p align="center">
+    <img src="/learning-paths/servers-and-cloud-computing/fastpath/images/sequence_diagram_fastpath_dark.png" alt="EC2 setup" style="width:95%;">
+  </p>
+
+### Build Host
+
+The kernel build host is responsible for producing kernel artifacts. Using kernel‑guide scripts, it installs the required development environment and calls into [Tuxmake](https://tuxmake.org/) to build kernels in a consistent and repeatable way.
+
+### System Under Test (SUT)
+
+The SUT host is a blank slate where benchmark workloads actually run -- its the system you are testing performance for.
+
+The provided utility scripts make it easy to prepare the SUT by installing prerequisites such as Docker and the *fastpath* system account.
+
+### FastPath Host
+
+The FastPath host brings it all together, acting as the control plane for benchmarking tasks. Provided utility scripts help you copy kernels from the build host to the *fastpath* host, enabling it to execute benchmarks on the SUT, and aggregate benchmark run results.
+
+
+## Learning Path Structure
+
+Each chapter in this learning path corresponds to a step in the flow above. For each chaper, the same high‑level pattern applies:
+
+- Bring up the required cloud instance 
+- Run utility-script setup for that machine
+- Use the machine for its intended role
+
+You do not need to understand every tool or dependency used in this LP. The goal is to understand how the pieces fit together and how each machine contributes to the overall benchmarking workflow.
+
+With that background, you're ready to begin setting up the build machine!
