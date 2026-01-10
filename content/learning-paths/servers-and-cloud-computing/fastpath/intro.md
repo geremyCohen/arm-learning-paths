@@ -10,13 +10,13 @@ layout: "learningpathall"
 
 Building a custom kernel lets you experiment with new features, patches, or toggle specialized instrumentation without waiting for them to be available from the official Linux distro updates.  But building them is only half the battle. You also need to deploy them to a test system, run the benchmarks, and compare results between kernels to understand how their differences impact your workloads. 
 
-This learning path shows you how to implement this end‑to‑end workflow for doing just that; building, configuring, and running [fastpath](https://fastpath.docs.arm.com/en/latest/index.html) benchmarks on Arm-compatible Linux kernels.
+This learning path shows you how to implement this end‑to‑end workflow for doing just that; building, configuring, and running [*fastpath*](https://fastpath.docs.arm.com/en/latest/index.html) benchmarks on Arm-compatible Linux kernels.
 
 [`Utility scripts`](https://github.com/geremyCohen/arm_kernel_install_guide) are provided which abstract low‑level setup work, allowing you to focus on how the systems work together, rather than how every dependency is installed.
 
-## Overall Process
+## Sequence of Operations
 
-The overall process consists of three main machines working together:
+This sequence diagram depicts the three main machines you'll create and setup in this LP working together:
 
   <p align="center">
     <img src="/learning-paths/servers-and-cloud-computing/fastpath/images/sequence_diagram_fastpath_dark.png" alt="EC2 setup" style="width:95%;">
@@ -32,14 +32,14 @@ The SUT host is a blank slate where benchmark workloads actually run -- its the 
 
 The provided utility scripts make it easy to prepare the SUT by installing prerequisites such as Docker and the *fastpath* system account.
 
-### FastPath Host
+### Fastpath Host
 
-The FastPath host brings it all together, acting as the control plane for benchmarking tasks. Provided utility scripts help you copy kernels from the build host to the *fastpath* host, enabling it to execute benchmarks on the SUT, and aggregate benchmark run results.
+The *fastpath* host brings it all together, acting as the control plane for benchmarking tasks. Provided utility scripts help you copy kernels from the build host to the *fastpath* host, enabling it to execute benchmarks on the SUT, and aggregate benchmark run results.
 
 
 ## Learning Path Structure
 
-Each chapter in this learning path corresponds to a step in the flow above. For each chaper, the same high‑level pattern applies:
+Each chapter in this learning path corresponds to a step in the flow above. For each chapter, the same high‑level pattern applies:
 
 - Bring up the required cloud instance 
 - Run utility-script setup for that machine
