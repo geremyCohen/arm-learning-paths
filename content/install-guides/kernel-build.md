@@ -54,8 +54,8 @@ All commands in this guide assume you are inside this directory. The important s
 
 The `kernel_build_and_install.sh` script is intentionally modular. Most users fall into two buckets:
 
-1. **General Usage (non-Fastpath)** – build kernels for direct install or downstream packaging.
-2. **Fastpath Usage** – build kernels that add the Fastpath headers/perf configuration needed by the Fastpath validation tool. Aside from those extra configs, the workflow mirrors the general case.
+1. **General Usage (non-fastpath)** – build kernels for direct install or downstream packaging.
+2. **Fastpath Usage** – build kernels that add the *fastpath* headers/perf configuration needed by the *fastpath* validation tool. Aside from those extra configs, the workflow mirrors the general case.
 
 The sections below start simple (demo flags) and progress toward advanced scenarios. Every flag referenced is shown in at least one example so you can mix and match confidently.
 
@@ -65,7 +65,7 @@ The sections below start simple (demo flags) and progress toward advanced scenar
 
 | Flag | Description |
 | --- | --- |
-| `--demo-default-build` | Shortcut: builds `v6.18.1` with default configs and leaves Fastpath disabled. |
+| `--demo-default-build` | Shortcut: builds `v6.18.1` with default configs and leaves *fastpath* disabled. |
 | `--tag <tag>` / `--tags <list>` / `--tag-latest` | Select one or more kernel tags. Multiple tags build in parallel; the latest stable release can be added via `--tag-latest`. |
 | `--install-from <dir>` / `--install-format <flat\|deb\|auto>` | Install an existing build (flat artifacts or `.deb` packages) without recompiling. |
 | `--dry-run` | Generate a self-contained plan script (stored in `/tmp/kernel_plan_*.sh`) with the resolved arguments and exit without running the build. |
@@ -75,14 +75,14 @@ The sections below start simple (demo flags) and progress toward advanced scenar
 | `--include-bindeb-pkg` | Adds the `bindeb-pkg` target so `.deb` packages are produced alongside `Image.gz` and `modules.tar.xz`. |
 | `--kernel-command-line <string>` | Override GRUB’s `GRUB_CMDLINE_LINUX` when installing a kernel. |
 | `--append-to-kernel-version <text>` | Attach custom suffixes to `EXTRAVERSION` (e.g., `--append "-lab"`). |
-| `--kernel-dir <path>` / `--output-base <path>` / `--venv-path <path>` | Control where the kernel git checkout lives, where artifacts are stored, and which Python venv hosts tuxmake. |
+| `--kernel-dir <path>` / `--venv-path <path>` | Control where the kernel git checkout lives and which Python venv hosts tuxmake. Build artifacts always land under `~/kernels/<tag>`. |
 
 #### Fastpath usage flags
 
 | Flag | Description |
 | --- | --- |
-| `--demo-fastpath-build` | Shortcut: builds `v6.18.1` and `v6.19-rc1` with Fastpath configs enabled. |
-| `--fastpath <bool>` | Manually enable/disable the Fastpath configuration overlay (installs Docker as needed). |
+| `--demo-fastpath-build` | Shortcut: builds `v6.18.1` and `v6.19-rc1` with *fastpath* configs enabled. |
+| `--fastpath <bool>` | Manually enable/disable the *fastpath* configuration overlay (installs Docker as needed). |
 
 Run `./scripts/kernel_build_and_install.sh --help` anytime for the exhaustive list.
 
@@ -96,7 +96,7 @@ Run `./scripts/kernel_build_and_install.sh --help` anytime for the exhaustive li
 ```bash
 ./scripts/kernel_build_and_install.sh --demo-default-build
 ```
-This demo builds `v6.18.1`, populates `~/kernels/6.18.1`, and leaves Docker as well as Fastpath configs untouched.
+This demo builds `v6.18.1`, populates `~/kernels/6.18.1`, and leaves Docker as well as *fastpath* configs untouched.
 
 #### 2. Specify your own tag
 ```bash
@@ -128,7 +128,7 @@ This command installs the freshly built kernel, regenerates initramfs, updates G
 ```
 Both kernels build in parallel, but only `v6.18.1` is installed (followed by an automatic reboot), leaving the `v6.19-rc1` artifacts untouched under `~/kernels`.
 
-#### 6. 64 KB page-size build and install
+#### 6. 64K page-size build and install
 ```bash
 ./scripts/kernel_build_and_install.sh \
   --tags v6.18.1 \
@@ -173,9 +173,9 @@ Instead of performing the build, this command writes a self-contained plan such 
 
 ## Fastpath Usage
 
-Fastpath builds use the same tuxmake pipelines but add a configuration fragment that exposes the interfaces needed by the Fastpath testing framework (extra headers, perf tooling, and Docker so Fastpath can drive the host). Fastpath workflows are build-only: do not combine `--fastpath true` (or the demo shortcut) with `--kernel-install` or any `--install-from` commands. Instead, let the build finish, copy the flat artifacts (`Image.gz`, `modules.tar.xz`, and `config`) to the Fastpath host, and let the Fastpath tooling handle deployment to the SUT. Docker is still installed automatically whenever Fastpath mode is enabled so the Fastpath controller can manage the host.
+*fastpath* builds use the same tuxmake pipelines but add a configuration fragment that exposes the interfaces needed by the *fastpath* testing framework (extra headers, perf tooling, and Docker so *fastpath* can drive the host). *fastpath* workflows are build-only: do not combine `--fastpath true` (or the demo shortcut) with `--kernel-install` or any `--install-from` commands. Instead, let the build finish, copy the flat artifacts (`Image.gz`, `modules.tar.xz`, and `config`) to the *fastpath* host, and let the *fastpath* tooling handle deployment to the SUT. Docker is still installed automatically whenever *fastpath* mode is enabled so the *fastpath* controller can manage the host.
 
-Fastpath runs can still take advantage of tuning flags such as `--change-to-64k`, alternate configs, or custom output directories. Even if you specify packaging flags such as `--include-bindeb-pkg`, Fastpath tests consume the flat artifacts.
+*fastpath* runs can still take advantage of tuning flags such as `--change-to-64k`, alternate configs, or custom output directories. Even if you specify packaging flags such as `--include-bindeb-pkg`, *fastpath* tests consume the flat artifacts.
 
 ### Fastpath examples
 
@@ -183,7 +183,7 @@ Fastpath runs can still take advantage of tuning flags such as `--change-to-64k`
 ```bash
 ./scripts/kernel_build_and_install.sh --demo-fastpath-build
 ```
-The demo builds `v6.18.1` and `v6.19-rc1` with Fastpath configs enabled and installs Docker automatically if the host lacks it.
+The demo builds `v6.18.1` and `v6.19-rc1` with *fastpath* configs enabled and installs Docker automatically if the host lacks it.
 
 #### 2. Custom tags with Fastpath enabled
 ```bash
@@ -200,7 +200,7 @@ This explicit version mirrors the demo while making it easy to swap tag sets or 
   --fastpath true \
   --change-to-64k true
 ```
-This variation still produces build-only artifacts, but it proves that you can layer other build-time options (like a 64 KB page size) on top of Fastpath runs before exporting the results to the Fastpath host.
+This variation still produces build-only artifacts, but it proves that you can layer other build-time options (like a 64 KB page size) on top of *fastpath* runs before exporting the results to the *fastpath* host.
 
 ---
 

@@ -40,11 +40,11 @@ Use this reference before every Fastpath learning-path (LP) validation run so te
 - Always clone `https://github.com/geremyCohen/arm_kernel_install_guide.git` into the home directory of the build host, then `chmod +x scripts/*.sh`.
 - Run the Fastpath build via:
   ```
-  ./scripts/kernel_build_and_install.sh --tags v6.18.1,v6.19-rc1 --fastpath true --output-base ~/work/kernel-builds/fastpath
+  ./scripts/kernel_build_and_install.sh --tags v6.18.1,v6.19-rc1 --fastpath true
   ```
   Adjust tag lists only if the LP explicitly asks for different versions.
 - Save the build logs locally (copy/paste into the LP or an appendix) so failures can be diagnosed without re-running a 15-minute build.
-- When referencing artifacts later (pull scripts, Fastpath deployment), record the actual artifact directory paths produced by the build (`~/work/kernel-builds/fastpath/<tag>`).
+- When referencing artifacts later (pull scripts, Fastpath deployment), record the actual artifact directory paths produced by the build (`~/kernels/<tag>`).
 
 ## Documentation Notes
 - Keep the Hugo front matter untouched unless the user requests metadata changes.
