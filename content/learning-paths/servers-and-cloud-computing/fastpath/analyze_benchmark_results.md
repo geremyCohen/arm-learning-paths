@@ -16,6 +16,7 @@ To inspect the outputs stored in the `results/` directory you can use the sample
 To see the swprofiles (kernels) tested and stored in the results directory, run:
 
 ```commandline
+source ~/venv/bin/activate
 fastpath result list results-fastpath_test_010826-1837 --object swprofile
 ```
 
@@ -107,4 +108,4 @@ with output similar to:
 ```
 We see 6.18.1 is performing slightly better than 6.19-rc1 in this benchmark.
 
-More examples of analyzing results can be found in the [Fastpath Results User Guide](https://fastpath.docs.arm.com/en/latest/user-guide/resultshow.html).
+More examples of analyzing results can be found in the [*fastpath* Results User Guide](https://fastpath.docs.arm.com/en/latest/user-guide/resultshow.html).

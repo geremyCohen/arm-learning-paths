@@ -5,14 +5,14 @@ weight: 10
 
 layout: "learningpathall"
 ---
-Now that kernels are built and the Fastpath host is ready, it's time to set up the system under test (SUT).
+Now that kernels are built and the *fastpath* host is ready, it's time to set up the system under test (SUT).
 
 
 ## Provision the SUT
 
-The System Under Test (SUT) is the target machine where Fastpath installs your kernels, runs benchmarks on each kernel (one at a time) and when complete, compares and displays the results via Fastpath.
+The System Under Test (SUT) is the target machine where *fastpath* installs your kernels, runs benchmarks on each kernel (one at a time) and when complete, compares and displays the results via *fastpath*.
 
-Just like choosing the kernels to test, the instance type of the SUT depends on your use case. For this Fastpath LP, we recommend a Graviton4 `c8g.12xl` instance with Ubuntu 24.04 LTS. This instance type provides a good balance of CPU and memory for a test benchmark.
+Just like choosing the kernels to test, the instance type of the SUT depends on your use case. For this *fastpath* LP, we recommend a Graviton4 `c8g.12xl` instance with Ubuntu 24.04 LTS. This instance type provides a good balance of CPU and memory for a test benchmark.
 
 Launch the *SUT* host machine with the following settings:
 
@@ -22,7 +22,7 @@ Launch the *SUT* host machine with the following settings:
 4. **Architecture** — *64-bit Arm*
 5. **Instance type** — `c8g.12xlarge`
 6. **Key pair** — *Select or create a key for SSH*
-7. **Security group** — *allow SSH inbound from your IP and Fastpath host*
+7. **Security group** — *allow SSH inbound from your IP and fastpath host*
 8. **Storage** — *200 GB gp3*
 
 For a visual representation of these steps, refer back to the diagram in [Build Setup](../build_setup/).
@@ -32,18 +32,17 @@ When the instance reports a `running` state, note the public and private IP addr
 
 ## Configure the SUT via the Fastpath instance
 
-
-You'll next run a script that remotely installs the Fastpath software, and the required `fpuser` system account.  It also sets up SSH access for the new `fpuser` account by copying over ubuntu@SUT's `~/.ssh/authorized_keys` file.
+You'll next run a script that remotely installs the *fastpath* software, and the required `fpuser` system account.  It also sets up SSH access for the new `fpuser` account by copying over ubuntu@SUT's `~/.ssh/authorized_keys` file.
 
 {{% notice Note %}}
-When communicating from the Fastpath host to the SUT, use the SUT's private IP address.  This will allow for much faster communication and file transfer.
+When communicating from the *fastpath* host to the SUT, use the SUT's private IP address.  This will allow for much faster communication and file transfer.
 {{% /notice %}}
 
-In this example, `44.201.174.17` is used as the Fastpath host public IP, and `100.119.0.139` is used as the SUT's private IP. Replace with your own values:
+In this example, `44.201.174.17` is used as the *fastpath* host public IP, and `100.119.0.139` is used as the SUT's private IP. Replace with your own values:
 
 ```command
 ssh -A -i ~/.ssh/gcohen1.pem ubuntu@3.86.227.83 # SSH to FASTPATH_PUBLIC_IP with agent forwarding
-source ~/venv/bin/activate # Activate the Fastpath virtual environment
+source ~/venv/bin/activate # Activate the fastpath virtual environment
 cd ~/arm_kernel_install_guide # Enter the helper scripts repository
 ./scripts/configure_fastpath_sut.sh --host 172.31.100.19 # Configure the new SUT instance via its private IP
 ```
@@ -64,7 +63,7 @@ fpuser
 
 
 ## Validate Fastpath connectivity
-Once complete, ensure the Fastpath host can properly ping the SUT with the following command:
+Once complete, ensure the *fastpath* host can properly ping the SUT with the following command:
 
 ```command
 cd ~/fastpath
@@ -86,4 +85,4 @@ SW:
 
 A successful run prints hardware details for the SUT. If the command fails, verify security group rules and rerun the configuration script.  If you are able to ssh into the SUT as `fpuser`, but the fingerprint command still fails, ensure that `docker.io` is installed on the SUT.
 
-With the SUT now configured, you're ready to move on to the next step: setting up and running a Fastpath benchmark!  Remember to stop (but not terminate) the build instance so that kernel artifacts remain available, and stop any Fastpath/SUT instances when you are finished testing to avoid unnecessary spend.
+With the SUT now configured, you're ready to move on to the next step: setting up and running a *fastpath* benchmark!  Remember to stop (but not terminate) the build instance so that kernel artifacts remain available, and stop any *fastpath*/SUT instances when you are finished testing to avoid unnecessary spend.
