@@ -83,14 +83,14 @@ Cloning into 'arm_kernel_install_guide'...
 
 ## Building with the Kernel Build utility script
 
-With the repository cloned, you can now produce kernels with Fastpath support.
+With the repository cloned, you can now produce kernels with *fastpath* support.
 
 Normally, to manually build, you'd have to:
 
   - Update the host and install proper versions of every kernel build dependency
   - Find and utilize the current stock kernel config 
   - Clone the upstream kernel tree to fetch the desired versions and clean the tree between builds
-  - For each kernel version, copy the base config into the workspace, and append all Fastpath-specific options
+  - For each kernel version, copy the base config into the workspace, and append all *fastpath*-specific options
   - Run tuxmake for each kernel with the proper options
   - Repeat the entire process for the second tag, ensuring the builds don’t collide
   - Verify both kernel directories contain the required files
@@ -100,13 +100,13 @@ But do not fear... Using ```scripts/kernel_build_and_install.sh``` bundles all t
 ### Which kernels should you build and test against with Fastpath?
 The answer to this question depends on what you are trying to accomplish.  
 
-If you are running through the Fastpath tutorial for the first time and getting used to how it works, its fine to use the arbitrary kernel versions given in Fastpath Example 2, which are v6.18.1 and v6.19-rc1.
+If you are running through the *fastpath* tutorial for the first time and getting used to how it works, its fine to use the arbitrary kernel versions given in *fastpath* Example 2, which are v6.18.1 and v6.19-rc1.
 
 Once you are familiar with the process and you wish to explore and test further, choose any specific kernel versions, based on your use case.  
 
 ## Compile and build Fastpath-enabled kernels 6.18.1 and 6.19-rc1
 
-To run the script with Fastpath options:
+To run the script with *fastpath* options:
 
 1. On the build machine, ```cd``` into the `arm_kernel_install_guide` folder you just cloned. 
 
@@ -118,10 +118,10 @@ cd ~/arm_kernel_install_guide
 ubuntu@ip-172-31-110-110:~/arm_kernel_install_guide$
 ```
 
-2. Open the [Custom tags with Fastpath enabled](http://localhost:1313/install-guides/kernel-build/#2-custom-tags-with-fastpath-enabled) section from the install guide, and follow the instructions to run the build script. It should be similar to the following (always refer to the above link for the latest command line):
+2. Open the [Custom tags with *fastpath* enabled](http://localhost:1313/install-guides/kernel-build/#2-custom-tags-with-fastpath-enabled) section from the install guide, and follow the instructions to run the build script. It should be similar to the following (always refer to the above link for the latest command line):
 
 ```output
-$ ./scripts/kernel_build_and_install.sh --tags v6.18.1,v6.19-rc1 --fastpath true --output-base ~/work/kernel-builds/fastpath
+$ ./scripts/kernel_build_and_install.sh --tags v6.18.1,v6.19-rc1 --fastpath true
 
 [2026-01-08 18:13:14] Updating apt metadata
 Kernel build settings:
@@ -130,19 +130,19 @@ Kernel build settings:
   Tags:                v6.18.1,v6.19-rc1
   Config file:         /boot/config-6.14.0-1018-aws
   Kernel dir base:     /home/ubuntu/kernels/linux
-  Output base:         /home/ubuntu/work/kernel-builds/fastpath
+  Output base:         /home/ubuntu/kernels
   Fastpath configs:    true
   64K page size:       false
   Kernel install:      false
 ...
-I: build output in /home/ubuntu/work/kernel-builds/fastpath/6.18.1-ubuntu
-[2026-01-08 18:32:03] [v6.18.1-1] Build artifacts are located in /home/ubuntu/work/kernel-builds/fastpath/6.18.1-ubuntu+
-I: build output in /home/ubuntu/work/kernel-builds/fastpath/6.19.0-rc1-ubuntu
-[2026-01-08 18:32:06] [v6.19-rc1-2] Build artifacts are located in /home/ubuntu/work/kernel-builds/fastpath/6.19.0-rc1-ubuntu+
+I: build output in /home/ubuntu/kernels/6.18.1-ubuntu
+[2026-01-08 18:32:03] [v6.18.1-1] Build artifacts are located in /home/ubuntu/kernels/6.18.1-ubuntu+
+I: build output in /home/ubuntu/kernels/6.19.0-rc1-ubuntu
+[2026-01-08 18:32:06] [v6.19-rc1-2] Build artifacts are located in /home/ubuntu/kernels/6.19.0-rc1-ubuntu+
 ```
 
 The script will now build two kernel images.  This process may take some time -- on a `c8g.24xlarge` instance, expect approximately 30 minutes for both kernel builds to complete.
 
 4. Monitor the console output for the `BUILD COMPLETE` message. 
 
-Once finished, you will be ready to move on to the next step, where you prepare the Fastpath host.
+Once finished, you will be ready to move on to the next step, where you prepare the *fastpath* host.
