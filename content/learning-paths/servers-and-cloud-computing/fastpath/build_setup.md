@@ -26,9 +26,15 @@ Launch the *build* machine with the following settings:
 8. **Storage** — *200 GB gp3*
 
 
-  <p align="center">
+ <p align="center">
     <img src="/learning-paths/servers-and-cloud-computing/fastpath/images/ec2_setup.png" alt="EC2 setup" style="width:70%;">
   </p>
+
+<a href="https://console.aws.amazon.com/cloudformation/home?region=us-east-1#/stacks/create/review?stackName=fastpath-build&templateURL=https%3A%2F%2Farm-gcohen.s3.amazonaws.com%2Fcloudformation%2Fbuild-host.yaml&param_KeyPairName=gcohen1&param_InstanceType=c8g.24xlarge&param_RootVolumeSizeGiB=200&param_SSHAllowedCidr=0.0.0.0%2F0&param_VpcId=vpc-0b60d8e1d8f75503f&param_SubnetId=subnet-0824c400ff9b8e117" title="Open the CloudFormation template with pre-filled parameters in the AWS console" target="_blank" rel="noopener">
+  <img src="/learning-paths/servers-and-cloud-computing/fastpath/images/cloudformation-template.svg" alt="CloudFormation template icon" style="height:64px; float:right; margin:0 0 1rem 1rem;">
+</a>
+
+Click the icon above to open the AWS CloudFormation console with this template, stack name, and sample parameters pre-loaded (update the VPC, subnet, and key pair to match your environment before deploying). The template also lives alongside the learning path files so you can inspect or customize it as needed.
 
 When the instance reports a `running` state, note the public and private IP addresses as BUILD_PUBLIC_IP and BUILD_PRIVATE_IP.  You'll need these values later.
 

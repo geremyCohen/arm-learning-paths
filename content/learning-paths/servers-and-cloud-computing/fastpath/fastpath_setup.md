@@ -23,6 +23,12 @@ Launch the *fastpath host* machine with the following settings:
 7. **Security group** — *allow SSH inbound from your IP and peer nodes*
 8. **Storage** — *200 GB gp3*
 
+<a href="https://console.aws.amazon.com/cloudformation/home?region=us-east-1#/stacks/create/review?stackName=fastpath-host&templateURL=https%3A%2F%2Farm-gcohen.s3.amazonaws.com%2Fcloudformation%2Ffastpath-host.yaml&param_KeyPairName=gcohen1&param_InstanceType=c8g.4xlarge&param_RootVolumeSizeGiB=200&param_SSHAllowedCidr=0.0.0.0%2F0&param_VpcId=vpc-0b60d8e1d8f75503f&param_SubnetId=subnet-0824c400ff9b8e117" title="Open the Fastpath host CloudFormation template with sample parameters in the AWS console" target="_blank" rel="noopener">
+  <img src="/learning-paths/servers-and-cloud-computing/fastpath/images/cloudformation-template.svg" alt="CloudFormation template icon" style="height:64px; float:right; margin:0 0 1rem 1rem;">
+</a>
+
+Clicking the icon launches the AWS CloudFormation console with this template and sample parameters pre-loaded. Swap in your own key pair, VPC, subnet, and SSH CIDR, then create the stack to provision the Fastpath host automatically.
+
 For a visual representation of these steps, refer back to the diagram in [Build Setup](../build_setup/).
 
 When the instance reports a `running` state, note the public and private IP addresses as FASTPATH_PUBLIC_IP and FASTPATH_PRIVATE_IP.  You'll need these values later.

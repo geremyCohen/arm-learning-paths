@@ -25,6 +25,12 @@ Launch the *SUT* host machine with the following settings:
 7. **Security group** — *allow SSH inbound from your IP and fastpath host*
 8. **Storage** — *200 GB gp3*
 
+<a href="https://console.aws.amazon.com/cloudformation/home?region=us-east-1#/stacks/create/review?stackName=fastpath-sut&templateURL=https%3A%2F%2Farm-gcohen.s3.amazonaws.com%2Fcloudformation%2Fsut-host.yaml&param_KeyPairName=gcohen1&param_InstanceType=c8g.12xlarge&param_RootVolumeSizeGiB=200&param_SSHAllowedCidr=0.0.0.0%2F0&param_VpcId=vpc-0b60d8e1d8f75503f&param_SubnetId=subnet-0824c400ff9b8e117" title="Open the SUT CloudFormation template with sample parameters in the AWS console" target="_blank" rel="noopener">
+  <img src="/learning-paths/servers-and-cloud-computing/fastpath/images/cloudformation-template.svg" alt="CloudFormation template icon" style="height:64px; float:right; margin:0 0 1rem 1rem;">
+</a>
+
+Use the icon to open the AWS CloudFormation console with the SUT template and example parameters already populated. Update the values (including the optional Fastpath security-group parameter if you want the template to permit peer SSH automatically) before you click **Create stack**.
+
 For a visual representation of these steps, refer back to the diagram in [Build Setup](../build_setup/).
 
 When the instance reports a `running` state, note the public and private IP addresses as SUT_PUBLIC_IP and SUT_PRIVATE_IP.  You'll need these values later.
