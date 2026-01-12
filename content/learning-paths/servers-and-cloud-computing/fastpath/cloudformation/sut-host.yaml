@@ -1,0 +1,107 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: >-
+  Fastpath Learning Path - System Under Test (SUT) instance for benchmark execution.
+
+Parameters:
+  LatestUbuntuAmiId:
+    Type: 'AWS::SSM::Parameter::Value<AWS::EC2::Image::Id>'
+    Default: /aws/service/canonical/ubuntu/server/24.04/stable/current/arm64/hvm/ebs-gp3/ami-id
+    Description: SSM parameter for the latest Ubuntu 24.04 LTS (Arm) AMI.
+  InstanceType:
+    Type: String
+    Default: c8g.12xlarge
+    AllowedValues:
+      - c8g.8xlarge
+      - c8g.12xlarge
+      - c8g.16xlarge
+    Description: Instance size for the SUT.
+  KeyPairName:
+    Type: AWS::EC2::KeyPair::KeyName
+    Description: Existing EC2 key pair to enable SSH access.
+  VpcId:
+    Type: AWS::EC2::VPC::Id
+    Description: VPC where the SUT will run.
+  SubnetId:
+    Type: AWS::EC2::Subnet::Id
+    Description: Subnet for the SUT (needs network reachability from the Fastpath host).
+  SSHAllowedCidr:
+    Type: String
+    Default: 0.0.0.0/0
+    Description: CIDR block allowed to SSH into the SUT (replace with your IP/CIDR).
+  FastpathSecurityGroupId:
+    Type: String
+    Default: ''
+    Description: (Optional) Security group ID of the Fastpath host to allow peer-to-peer SSH. Leave blank to skip.
+  RootVolumeSizeGiB:
+    Type: Number
+    Default: 200
+    MinValue: 100
+    MaxValue: 1024
+    Description: Size (GiB) of the gp3 root volume.
+
+Conditions:
+  HasFastpathPeer: !Not [ !Equals [ !Ref FastpathSecurityGroupId, '' ] ]
+
+Resources:
+  SutSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Enable SSH access for the SUT
+      VpcId: !Ref VpcId
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 22
+          ToPort: 22
+          CidrIp: !Ref SSHAllowedCidr
+      SecurityGroupEgress:
+        - IpProtocol: -1
+          CidrIp: 0.0.0.0/0
+      Tags:
+        - Key: Name
+          Value: fastpath-sut-sg
+
+  SutPeerIngress:
+    Type: AWS::EC2::SecurityGroupIngress
+    Condition: HasFastpathPeer
+    Properties:
+      IpProtocol: tcp
+      FromPort: 22
+      ToPort: 22
+      SourceSecurityGroupId: !Ref FastpathSecurityGroupId
+      GroupId: !Ref SutSecurityGroup
+
+  SutHost:
+    Type: AWS::EC2::Instance
+    Properties:
+      ImageId: !Ref LatestUbuntuAmiId
+      InstanceType: !Ref InstanceType
+      KeyName: !Ref KeyPairName
+      SubnetId: !Ref SubnetId
+      SecurityGroupIds:
+        - !Ref SutSecurityGroup
+      BlockDeviceMappings:
+        - DeviceName: /dev/sda1
+          Ebs:
+            VolumeSize: !Ref RootVolumeSizeGiB
+            VolumeType: gp3
+            Encrypted: true
+            DeleteOnTermination: true
+      Tags:
+        - Key: Name
+          Value: fastpath-sut
+        - Key: fastpath:role
+          Value: sut
+
+Outputs:
+  InstanceId:
+    Description: ID of the SUT EC2 instance.
+    Value: !Ref SutHost
+  PublicIp:
+    Description: Public IPv4 address for the SUT (if applicable).
+    Value: !GetAtt SutHost.PublicIp
+  PrivateIp:
+    Description: Private IPv4 address for intra-cluster communication.
+    Value: !GetAtt SutHost.PrivateIp
+  SecurityGroupId:
+    Description: Security group attached to the SUT.
+    Value: !Ref SutSecurityGroup

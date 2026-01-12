@@ -6,11 +6,12 @@ weight: 18
 layout: "learningpathall"
 ---
 
-You now have a working *fastpath* environment consisting of:
+You now have a working *fastpath* benchmarking environment consisting of:
 
-- A reusable *fastpath* host with the CLI, helper scripts, and kernel artifacts.
-- A configured SUT that can receive new kernels and run the benchmark plan.
-- A repeatable workflow for generating plans, executing tests, and analyzing results.
+- A build host that can compile custom Linux kernels with all *fastpath* dependencies.
+- A reusable *fastpath* host which can generate and orchestrate benchmark plans, as well as analyze results.
+- An SUT that can run the benchmark plan.
+
 
 Continue exploring by revisiting the source documentation:
 

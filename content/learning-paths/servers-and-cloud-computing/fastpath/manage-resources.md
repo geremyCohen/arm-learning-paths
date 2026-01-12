@@ -6,10 +6,10 @@ weight: 17
 layout: "learningpathall"
 ---
 
-Benchmarks can run for hours, so keep a simple hygiene checklist to control cost and preserve artifacts:
+Benchmarks can run for hours, so its easy to forget about the AWS resources you are using for your *fastpath* lab. 
 
-1. Stop the *fastpath* and SUT instances when you are not actively testing. Restart them only when you are ready to rerun `fastpath plan exec`.
-2. Terminate instances once you no longer need them, but archive the `results/` directory (for example, to Amazon S3) before doing so.
-3. Track the EBS volumes that back each instance. Deleting an instance does not automatically delete detached volumes, so remove unused storage to avoid lingering charges.
+To avoid unexpected charges, stop the *fastpath* and SUT instances when you are not actively testing.
+
+Terminate instances once you no longer need them -- you may wish to archive the `results/` directory on your fastpath host to save results for later.
 
 Following these practices keeps your *fastpath* lab ready for future experiments without surprise expenses.

@@ -1,0 +1,90 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: >-
+  Fastpath Learning Path - Fastpath host (controller) instance for benchmarking orchestration.
+
+Parameters:
+  LatestUbuntuAmiId:
+    Type: 'AWS::SSM::Parameter::Value<AWS::EC2::Image::Id>'
+    Default: /aws/service/canonical/ubuntu/server/24.04/stable/current/arm64/hvm/ebs-gp3/ami-id
+    Description: SSM parameter for the latest Ubuntu 24.04 LTS (Arm) AMI.
+  InstanceType:
+    Type: String
+    Default: c8g.4xlarge
+    AllowedValues:
+      - c8g.4xlarge
+      - c8g.8xlarge
+      - c8g.12xlarge
+    Description: Instance size for the Fastpath host.
+  KeyPairName:
+    Type: AWS::EC2::KeyPair::KeyName
+    Description: Existing EC2 key pair to enable SSH access.
+  VpcId:
+    Type: AWS::EC2::VPC::Id
+    Description: VPC where the Fastpath host will run.
+  SubnetId:
+    Type: AWS::EC2::Subnet::Id
+    Description: Subnet (public or private with outbound access) for the Fastpath host.
+  SSHAllowedCidr:
+    Type: String
+    Default: 0.0.0.0/0
+    Description: CIDR block allowed to SSH into the Fastpath host.
+  RootVolumeSizeGiB:
+    Type: Number
+    Default: 200
+    MinValue: 100
+    MaxValue: 1024
+    Description: Size (GiB) of the gp3 root volume.
+
+Resources:
+  FastpathSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Enable SSH access for the Fastpath host
+      VpcId: !Ref VpcId
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 22
+          ToPort: 22
+          CidrIp: !Ref SSHAllowedCidr
+      SecurityGroupEgress:
+        - IpProtocol: -1
+          CidrIp: 0.0.0.0/0
+      Tags:
+        - Key: Name
+          Value: fastpath-host-sg
+
+  FastpathHost:
+    Type: AWS::EC2::Instance
+    Properties:
+      ImageId: !Ref LatestUbuntuAmiId
+      InstanceType: !Ref InstanceType
+      KeyName: !Ref KeyPairName
+      SubnetId: !Ref SubnetId
+      SecurityGroupIds:
+        - !Ref FastpathSecurityGroup
+      BlockDeviceMappings:
+        - DeviceName: /dev/sda1
+          Ebs:
+            VolumeSize: !Ref RootVolumeSizeGiB
+            VolumeType: gp3
+            Encrypted: true
+            DeleteOnTermination: true
+      Tags:
+        - Key: Name
+          Value: fastpath-host
+        - Key: fastpath:role
+          Value: controller
+
+Outputs:
+  InstanceId:
+    Description: ID of the Fastpath host EC2 instance.
+    Value: !Ref FastpathHost
+  PublicIp:
+    Description: Public IPv4 address for the Fastpath host (if applicable).
+    Value: !GetAtt FastpathHost.PublicIp
+  PrivateIp:
+    Description: Private IPv4 address for intra-cluster communication.
+    Value: !GetAtt FastpathHost.PrivateIp
+  SecurityGroupId:
+    Description: Security group attached to the Fastpath host.
+    Value: !Ref FastpathSecurityGroup

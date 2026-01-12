@@ -8,13 +8,13 @@ layout: "learningpathall"
 
 ## Provision the build host
 
-CPU-optimized instances are recommended to compile kernels quickly.  In our example, an AWS Graviton4 `c8g.24xlarge` instance is used. It will be referred to as the *build* machine throughout the rest of the guide.
+CPU-optimized instances compile kernels quickly, so in our example, an AWS Graviton4 `c8g.24xlarge` instance is used. It will be referred to as the *build* machine throughout the rest of the guide.
 
 {{% notice Note %}}
 The following steps involve launching an EC2 instance.  You can perform all EC2 instance creation steps via the AWS Management Console instead or AWS CLI.  For step-by-step instructions to bring up an EC2 instance via the console, consult the [Compute Service Provider learning path](/learning-paths/servers-and-cloud-computing/csp/) for detailed instructions.  A tutorial from AWS is also available via [Get started with Amazon EC2](https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/EC2_GetStarted.html).
 {{% /notice %}}
 
-Launch the *build* machine with the following settings:
+Create build host with the following specifications:
 
 1. **Name** — *fastpath-build*
 2. **Operating system** — *Ubuntu*
@@ -25,16 +25,142 @@ Launch the *build* machine with the following settings:
 7. **Security group** — *allow SSH inbound from your IP and cluster peers*
 8. **Storage** — *200 GB gp3*
 
+There are many different ways to create this instance, and a few different methods are demonstrated below.  Choose the method which suits you best.  
 
- <p align="center">
-    <img src="/learning-paths/servers-and-cloud-computing/fastpath/images/ec2_setup.png" alt="EC2 setup" style="width:70%;">
-  </p>
+{{< tabpane >}}
+  {{< tab header="AWS Console" img_src="/learning-paths/servers-and-cloud-computing/fastpath/images/ec2_setup.png">}}
+  {{< /tab >}}
 
-<a href="https://console.aws.amazon.com/cloudformation/home?region=us-east-1#/stacks/create/review?stackName=fastpath-build&templateURL=https%3A%2F%2Farm-gcohen.s3.amazonaws.com%2Fcloudformation%2Fbuild-host.yaml&param_KeyPairName=gcohen1&param_InstanceType=c8g.24xlarge&param_RootVolumeSizeGiB=200&param_SSHAllowedCidr=0.0.0.0%2F0&param_VpcId=vpc-0b60d8e1d8f75503f&param_SubnetId=subnet-0824c400ff9b8e117" title="Open the CloudFormation template with pre-filled parameters in the AWS console" target="_blank" rel="noopener">
-  <img src="/learning-paths/servers-and-cloud-computing/fastpath/images/cloudformation-template.svg" alt="CloudFormation template icon" style="height:64px; float:right; margin:0 0 1rem 1rem;">
-</a>
+  {{< tab header="AWS CLI" language="shell">}}
+# Replace the placeholders with values from your account/environment
+aws ec2 run-instances \
+  --image-id resolve:ssm:/aws/service/canonical/ubuntu/server/24.04/stable/current/arm64/hvm/ebs-gp3/ami-id \
+  --instance-type c8g.24xlarge \
+  --key-name <KEY_PAIR_NAME> \
+  --subnet-id <SUBNET_ID> \
+  --security-group-ids <SECURITY_GROUP_ID> \
+  --associate-public-ip-address \
+  --block-device-mappings '[{"DeviceName":"/dev/sda1","Ebs":{"VolumeSize":200,"VolumeType":"gp3","DeleteOnTermination":true}}]' \
+  --tag-specifications 'ResourceType=instance,Tags=[{Key=Name,Value=fastpath-build},{Key=fastpath:role,Value=build}]'
+  {{< /tab >}}
 
-Click the icon above to open the AWS CloudFormation console with this template, stack name, and sample parameters pre-loaded (update the VPC, subnet, and key pair to match your environment before deploying). The template also lives alongside the learning path files so you can inspect or customize it as needed.
+  {{< tab header="CloudFormation" >}}
+
+cat <<'EOF' > build-host.yaml
+
+# README FIRST!
+#
+# 1. Click the copy icon to save this file to your clipboard.
+# 2. Paste it into your terminal, it will be saved as `build-host.yaml`
+# 3. Go to the CloudFormation console at https://us-east-1.console.aws.amazon.com/cloudformation/home
+# 4. Click "Create stack -> With new resources (standard)"
+# 5. Choose "Upload a template file" in the CloudFormation console.
+# 6. Name the stack "fastpath-build", enter remaining required values, then click "Submit" to create the stack.
+
+
+AWSTemplateFormatVersion: '2010-09-09'
+Description: >-
+  Fastpath Learning Path - Build host for kernel compilation (Ubuntu 24.04 LTS on Graviton4 c8g.24xlarge).
+
+Parameters:
+  LatestUbuntuAmiId:
+    Type: 'AWS::SSM::Parameter::Value<AWS::EC2::Image::Id>'
+    Default: /aws/service/canonical/ubuntu/server/24.04/stable/current/arm64/hvm/ebs-gp3/ami-id
+    Description: SSM parameter for the latest Ubuntu 24.04 LTS (Arm) AMI.
+  InstanceType:
+    Type: String
+    Default: c8g.24xlarge
+    AllowedValues:
+      - c8g.24xlarge
+      - c8g.16xlarge
+      - c8g.12xlarge
+      - c8g.8xlarge
+      - c8g.4xlarge
+    Description: Instance size for the build host.
+  KeyPairName:
+    Type: AWS::EC2::KeyPair::KeyName
+    Description: Existing EC2 key pair to enable SSH access.
+  VpcId:
+    Type: AWS::EC2::VPC::Id
+    Description: VPC where the build host will run.
+  SubnetId:
+    Type: AWS::EC2::Subnet::Id
+    Description: Subnet (preferably public) for the build host.
+  SSHAllowedCidr:
+    Type: String
+    Default: 0.0.0.0/0
+    Description: CIDR block allowed to SSH into the build host.
+  BuildSecurityGroupId:
+    Type: String
+    Default: ''
+    Description: Security group ID of the Fastpath host to allow peer-to-peer SSH.
+  RootVolumeSizeGiB:
+    Type: Number
+    Default: 200
+    MinValue: 100
+    MaxValue: 1024
+    Description: Size (GiB) of the gp3 root volume.
+
+Conditions:
+  HasFastpathPeer: !Not [ !Equals [ !Ref BuildSecurityGroupId, '' ] ]
+
+Resources:
+  BuildSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Enable SSH access for Fastpath build host
+      VpcId: !Ref VpcId
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 22
+          ToPort: 22
+          CidrIp: !Ref SSHAllowedCidr
+      SecurityGroupEgress:
+        - IpProtocol: -1
+          CidrIp: 0.0.0.0/0
+      Tags:
+        - Key: Name
+          Value: fastpath-build-sg
+
+  BuildHost:
+    Type: AWS::EC2::Instance
+    Properties:
+      ImageId: !Ref LatestUbuntuAmiId
+      InstanceType: !Ref InstanceType
+      KeyName: !Ref KeyPairName
+      SubnetId: !Ref SubnetId
+      SecurityGroupIds:
+        - !Ref BuildSecurityGroup
+      BlockDeviceMappings:
+        - DeviceName: /dev/sda1
+          Ebs:
+            VolumeSize: !Ref RootVolumeSizeGiB
+            VolumeType: gp3
+            Encrypted: true
+            DeleteOnTermination: true
+      Tags:
+        - Key: Name
+          Value: fastpath-build
+        - Key: fastpath:role
+          Value: build
+
+Outputs:
+  InstanceId:
+    Description: ID of the build host EC2 instance.
+    Value: !Ref BuildHost
+  PublicIp:
+    Description: Public IPv4 address (if assigned) to reference as BUILD_PUBLIC_IP.
+    Value: !GetAtt BuildHost.PublicIp
+  PrivateIp:
+    Description: Private IPv4 address to reference as BUILD_PRIVATE_IP.
+    Value: !GetAtt BuildHost.PrivateIp
+  SecurityGroupId:
+    Description: Security group attached to the build host.
+    Value: !Ref BuildSecurityGroup
+EOF
+
+  {{< /tab >}}
+{{< /tabpane >}}
 
 When the instance reports a `running` state, note the public and private IP addresses as BUILD_PUBLIC_IP and BUILD_PRIVATE_IP.  You'll need these values later.
 

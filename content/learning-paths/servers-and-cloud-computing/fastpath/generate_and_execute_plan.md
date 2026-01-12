@@ -103,7 +103,7 @@ Time to run the benchmark!  An example plan execution command line is given unde
 
 ```command
 source ~/venv/bin/activate
-~/fastpath/fastpath plan exec --output results-fastpath_test_010826-1837 /home/ubuntu/arm_kernel_install_guide/plans/fastpath_test_010826-1837.yaml
+~/fastpath/fastpath/fastpath plan exec --output results-fastpath_test_010826-1837 /home/ubuntu/arm_kernel_install_guide/plans/fastpath_test_010826-1837.yaml
 ```
 
 Copy and paste that line, to begin the testing:

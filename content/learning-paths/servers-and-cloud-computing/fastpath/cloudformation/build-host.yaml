@@ -1,0 +1,92 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: >-
+  Fastpath Learning Path - Build host for kernel compilation (Ubuntu 24.04 LTS on Graviton4 c8g.24xlarge).
+
+Parameters:
+  LatestUbuntuAmiId:
+    Type: 'AWS::SSM::Parameter::Value<AWS::EC2::Image::Id>'
+    Default: /aws/service/canonical/ubuntu/server/24.04/stable/current/arm64/hvm/ebs-gp3/ami-id
+    Description: SSM parameter for the latest Ubuntu 24.04 LTS (Arm) AMI.
+  InstanceType:
+    Type: String
+    Default: c8g.24xlarge
+    AllowedValues:
+      - c8g.24xlarge
+      - c8g.16xlarge
+      - c8g.12xlarge
+      - c8g.8xlarge
+      - c8g.4xlarge
+    Description: Instance size for the build host.
+  KeyPairName:
+    Type: AWS::EC2::KeyPair::KeyName
+    Description: Existing EC2 key pair to enable SSH access.
+  VpcId:
+    Type: AWS::EC2::VPC::Id
+    Description: VPC where the build host will run.
+  SubnetId:
+    Type: AWS::EC2::Subnet::Id
+    Description: Subnet (preferably public) for the build host.
+  SSHAllowedCidr:
+    Type: String
+    Default: 0.0.0.0/0
+    Description: CIDR block allowed to SSH into the build host.
+  RootVolumeSizeGiB:
+    Type: Number
+    Default: 200
+    MinValue: 100
+    MaxValue: 1024
+    Description: Size (GiB) of the gp3 root volume.
+
+Resources:
+  BuildSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Enable SSH access for Fastpath build host
+      VpcId: !Ref VpcId
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 22
+          ToPort: 22
+          CidrIp: !Ref SSHAllowedCidr
+      SecurityGroupEgress:
+        - IpProtocol: -1
+          CidrIp: 0.0.0.0/0
+      Tags:
+        - Key: Name
+          Value: fastpath-build-sg
+
+  BuildHost:
+    Type: AWS::EC2::Instance
+    Properties:
+      ImageId: !Ref LatestUbuntuAmiId
+      InstanceType: !Ref InstanceType
+      KeyName: !Ref KeyPairName
+      SubnetId: !Ref SubnetId
+      SecurityGroupIds:
+        - !Ref BuildSecurityGroup
+      BlockDeviceMappings:
+        - DeviceName: /dev/sda1
+          Ebs:
+            VolumeSize: !Ref RootVolumeSizeGiB
+            VolumeType: gp3
+            Encrypted: true
+            DeleteOnTermination: true
+      Tags:
+        - Key: Name
+          Value: fastpath-build
+        - Key: fastpath:role
+          Value: build
+
+Outputs:
+  InstanceId:
+    Description: ID of the build host EC2 instance.
+    Value: !Ref BuildHost
+  PublicIp:
+    Description: Public IPv4 address (if assigned) to reference as BUILD_PUBLIC_IP.
+    Value: !GetAtt BuildHost.PublicIp
+  PrivateIp:
+    Description: Private IPv4 address to reference as BUILD_PRIVATE_IP.
+    Value: !GetAtt BuildHost.PrivateIp
+  SecurityGroupId:
+    Description: Security group attached to the build host.
+    Value: !Ref BuildSecurityGroup
